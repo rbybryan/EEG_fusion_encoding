@@ -90,8 +90,8 @@ parser.add_argument('--file', type=str, required=True, help='Synthetic EEG data 
 
 args = parser.parse_args()
 
-model_name = args.file.replace(".npy", "")
-
+model_name = args.file
+args.file += '.npy'
 
 bio_file = os.path.join(args.data_path_bio, f'eeg_sub-{args.sub:02}_split-test.npy')
 bio_data = np.load(bio_file, allow_pickle=True).item()
