@@ -79,7 +79,7 @@ python src/encoding_model.py \
   --vision_model cornet_s \
   --language_model text_embedding_large \
   --fusion \
-  --project_dir /scratch/byrong/encoding/data \
+  --project_dir $PROJECT_DIR \
   --tag v1
 ```
 
@@ -90,9 +90,9 @@ python src/encoding_model.py \
 - `--project_dir`: Directory for input data and output results
 - `--tag`: Identifier for run/version
 
-Model outputs (R² scores, best alpha, etc.) will be saved under:
+Encoding results will be saved under:
 ```
-$PROJECT_DIR/results/sub-<sub>/encoding/<vision_model>[_<language_model>]_r2_<tag>.npy
+$PROJECT_DIR/linear_results/sub-<sub>/synthetic_eeg_data/<vision_model>_with_<language_model>_r2_<tag>_all.npy
 ```
 
 ### 2. Compute and Plot Correlations
@@ -102,9 +102,13 @@ python src/correlation.py \
   --sub 4 \
   --project_dir /scratch/byrong/encoding/data \
   --data_path_bio /scratch/byrong/encoding/data/eeg_dataset/preprocessed_eeg_data_v1 \
-  --file cornet_s_with_text_embedding_large_r2_v1.npy
+  --file cornet_s_with_text_embedding_large_r2_v1
 ```
 
 - `--data_path_bio`: Path to recorded EEG data
 - `--file`: Results file of predicted EEG data to correlate
 
+Correlation results will be saved under:
+```
+$PROJECT_DIR/linear_results/sub-<sub>/correlation/correlation_<file>.npy
+```
