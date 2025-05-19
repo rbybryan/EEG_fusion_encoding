@@ -2,7 +2,7 @@
 
 A small collection of Python scripts for:
 - **Encoding models** (ridge regression) with grid-search hyperparameter tuning
-- **Fusion models** to combine vision and language features
+- **Fusion encoding models** to combine vision and language features
 - **Correlation analysis** between EEG signals and model predictions
 
 ---
@@ -18,10 +18,6 @@ A small collection of Python scripts for:
   - Compute Pearson correlations between EEG recordings and model outputs
   - Visualize results with publication-ready plots
 
-- **Modular Codebase**:
-  - Separate modules for encoding, correlation, and data handling
-  - Easy to extend to new models or datasets
-
 ---
 
 ## 🚀 Installation
@@ -29,8 +25,8 @@ A small collection of Python scripts for:
 1. **Clone the repository**
 
    ```bash
-   git clone https://github.com/yourusername/eeg-encoding-regression.git
-   cd eeg-encoding-regression
+   git clone https://github.com/rbybryan/EEG_fusion_encoding.git
+   cd EEG_fusion_encoding
    ```
 
 2. **Create and activate a virtual environment** (recommended)
