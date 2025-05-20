@@ -56,18 +56,15 @@ A small collection of Python scripts for:
 │   ├── encoding_model.py     # train encoding/fusion ridge models
 │   ├── ridge_regression_utils.py  # core regression functions
 │   └── correlation.py        # compute and plot EEG/model correlations
-├── tests/
-│   ├── test_encoding_model.py
-│   └── test_correlation.py
 └── examples/
-    └── run_encoding_model.sh  # example usage script
+    └── run_and_test_encoding_model.sh  # example usage script
 ```
 
 ---
 
 ## 🔧 Usage
 
-### 1. Train an Encoding (or Fusion) Model
+### 1. Train an (Fusion) Encoding Model
 
 ```bash
 python src/encoding_model.py \
