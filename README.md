@@ -28,7 +28,7 @@ A small collection of Python scripts for:
    cd EEG_fusion_encoding
    ```
 
-2. **Create and activate a virtual environment** (recommended)
+2. **Create and activate a virtual environment** (optional)
 
    ```bash
    python3 -m venv venv
