@@ -12,11 +12,10 @@ A small collection of Python scripts for:
 - **Ridge Regression Utilities**:
   - Train single-source or fusion ridge regression models
   - Automatic grid-search over regularization strengths
-  - Save and load trained models and performance metrics
 
 - **Correlation Analysis**:
   - Compute Pearson correlations between EEG recordings and model outputs
-  - Visualize results with publication-ready plots
+  - Visualize results with python plots
 
 ---
 
