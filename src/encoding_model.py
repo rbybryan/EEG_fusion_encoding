@@ -166,7 +166,7 @@ for t in range(args.tot_eeg_time-1):
 
             y_pred_vision_only[:,c,t], alpha, flag = Grid_search(vision_feature_train,vision_feature_test,y_train[:,c,t],y_test[:,c,t],
                                         alpha_range = alpha_range,
-                                        metrics = metrics,kfold = 5)
+                                        metrics = args.metrics,kfold = 5)
 
             alpha_vision_only.append(alpha)
 
@@ -191,7 +191,7 @@ for t in range(args.tot_eeg_time-1):
 
             y_pred_language_only[:,c,t], alpha, flag = Grid_search(language_embedding_train,language_embedding_test,y_train[:,c,t],y_test[:,c,t],
                                               alpha_range = alpha_range,
-                                              metrics = metrics,kfold = 5)
+                                              metrics = args.metrics,kfold = 5)
             alpha_language_only.append(alpha) 
 
             if (c == args.tot_eeg_chan-1) and (t == args.tot_eeg_time-1):
@@ -219,7 +219,7 @@ for t in range(args.tot_eeg_time-1):
             
             y_pred_fusion[:,c,t], alpha, weight,flag = Grid_search_fusion(vision_feature_train,vision_feature_test,language_embedding_train,language_embedding_test,y_train[:,c,t],y_test[:,c,t],
                         alpha_range = alpha_range,weight_list = np.linspace(0,1000,41)/1000,
-                        metrics = metrics,kfold = 5)
+                        metrics = args.metrics,kfold = 5)
         
 
             alpha_fusion.append(alpha)
