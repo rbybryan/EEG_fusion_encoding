@@ -43,7 +43,7 @@ import os.path as op
 import sys
 import numpy as np
 import random
-from utils import grid_search,grid_search_fusion
+from utils import Grid_search,Grid_search_fusion
 
 
 parser = argparse.ArgumentParser()
