@@ -14,7 +14,7 @@ def Grid_search(
     y_test: np.ndarray,
     alpha_range: Union[Sequence[float], np.ndarray],
     metrics: str = 'mse',
-    cv_splits: int = 5,
+    kfold: int = 5,
     n_jobs: int = -1,
 ) -> Tuple[np.ndarray, float, int]:
     """
@@ -34,7 +34,7 @@ def Grid_search(
         1D array or sequence of alpha values to search (e.g., np.ndarray, list).
     metric : str, default='mse'
         Metric for model selection: 'mse', 'r2', or 'mae'.
-    cv_splits : int, default=5
+    kfold : int, default=5
         Number of cross-validation folds.
     n_jobs : int, default=-1
         Number of parallel jobs for GridSearchCV.
@@ -64,7 +64,7 @@ def Grid_search(
         raise ValueError(f"Unsupported metric '{metric}'. Choose from {list(scorers)}.")
 
     # Cross-validation
-    cv = KFold(n_splits=cv_splits, shuffle=True, random_state=42)
+    cv = KFold(n_splits=kfold, shuffle=True, random_state=42)
     model = Ridge()
     param_grid = {'alpha': alpha_arr}
     grid = GridSearchCV(model, param_grid, scoring=scoring, cv=cv, n_jobs=n_jobs)
@@ -121,7 +121,7 @@ def Grid_search_fusion(
     alpha_range: Union[Sequence[float], np.ndarray],
     weight_list: Union[Sequence[float], np.ndarray],
     metrics: str = 'mse',
-    cv_splits: int = 5,
+    kfold: int = 5,
     n_jobs: int = -1,
 ) -> Tuple[np.ndarray, float, float, int]:
     """
@@ -143,7 +143,7 @@ def Grid_search_fusion(
         1D array or sequence of weight values.
     metric : str, default='mse'
         Metric for model selection: 'mse', 'r2', or 'mae'.
-    cv_splits : int, default=5
+    kfold : int, default=5
         Number of CV folds.
     n_jobs : int, default=-1
         Parallel jobs for GridSearchCV.
@@ -180,7 +180,7 @@ def Grid_search_fusion(
     if scoring is None:
         raise ValueError(f"Unsupported metric '{metric}'. Choose from {list(scorers)}.")
 
-    cv = KFold(n_splits=cv_splits, shuffle=True, random_state=42)
+    cv = KFold(n_splits=kfold, shuffle=True, random_state=42)
     estimator = WeightedRidge(alpha=alpha_arr[0], weight=weight_arr[0], feature_one_index=feature_one_index)
     param_grid = {
         'alpha': alpha_arr,
