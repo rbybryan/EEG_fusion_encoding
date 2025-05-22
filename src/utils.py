@@ -13,7 +13,7 @@ def Grid_search(
     y_train: np.ndarray,
     y_test: np.ndarray,
     alpha_range: Union[Sequence[float], np.ndarray],
-    metrics: str = 'mse',
+    metric: str = 'mse',
     kfold: int = 5,
     n_jobs: int = -1,
 ) -> Tuple[np.ndarray, float, int]:
@@ -53,7 +53,7 @@ def Grid_search(
     if alpha_arr.ndim != 1:
         raise ValueError("alpha_range must be a 1D sequence or array.")
 
-    # Map metrics to scorers
+    # Map metric to scorers
     scorers = {
         'mse': make_scorer(mean_squared_error, greater_is_better=False),
         'r2': make_scorer(r2_score),
@@ -120,7 +120,7 @@ def Grid_search_fusion(
     y_test: np.ndarray,
     alpha_range: Union[Sequence[float], np.ndarray],
     weight_list: Union[Sequence[float], np.ndarray],
-    metrics: str = 'mse',
+    metric: str = 'mse',
     kfold: int = 5,
     n_jobs: int = -1,
 ) -> Tuple[np.ndarray, float, float, int]:
