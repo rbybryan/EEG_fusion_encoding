@@ -1,4 +1,5 @@
 #!/bin/bash
+cd src/
 
 python src/encoding_model.py \
   --sub 4 \
