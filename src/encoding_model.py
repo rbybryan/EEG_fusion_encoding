@@ -20,7 +20,7 @@ project_dir : str
     Root directory for all input data and output results.
 tag : str
     Version tag for differentiating result output files.
-metrics : str
+metric : str
     Regression metric to optimize ('r2', 'mse', or 'mae').
 vision_only : bool
     If True, run image-only encoding.
@@ -56,7 +56,7 @@ parser.add_argument('--nfeature_vm', type=int, default=1000, help='Number of vis
 parser.add_argument('--nfeature_lm', type=int, default=1000, help='Number of language feature components')
 parser.add_argument('--project_dir', type=str, default='/scratch/byrong/encoding/data', help='Root project directory')
 parser.add_argument('--tag', type=str, default='v3', help='Version tag for output files')
-parser.add_argument('--metrics', type=str, choices=['r2','mse','mae'], default='r2', help='Regression metric to optimize')
+parser.add_argument('--metric', type=str, choices=['r2','mse','mae'], default='r2', help='Regression metric to optimize')
 parser.add_argument('--vision_only', action='store_true', help='Run visio-only encoding')
 parser.add_argument('--language_only', action='store_true', help='Run text-only encoding')
 parser.add_argument('--fusion', action='store_true', help='Run image-text fusion encoding')
@@ -166,7 +166,7 @@ for t in range(args.tot_eeg_time-1):
 
             y_pred_vision_only[:,c,t], alpha, flag = Grid_search(vision_feature_train,vision_feature_test,y_train[:,c,t],y_test[:,c,t],
                                         alpha_range = alpha_range,
-                                        metrics = args.metrics,kfold = 5)
+                                        metric = args.metric,kfold = 5)
 
             alpha_vision_only.append(alpha)
 
@@ -179,7 +179,7 @@ for t in range(args.tot_eeg_time-1):
                 }
 
                 
-                file_name = '%s_%s_%s_%s.npy'%(args.vision_model,args.metrics,args.tag,args.n)
+                file_name = '%s_%s_%s_%s.npy'%(args.vision_model,args.metric,args.tag,args.n)
 
                 np.save(os.path.join(save_dir, file_name), data_dict)
 
@@ -191,7 +191,7 @@ for t in range(args.tot_eeg_time-1):
 
             y_pred_language_only[:,c,t], alpha, flag = Grid_search(language_embedding_train,language_embedding_test,y_train[:,c,t],y_test[:,c,t],
                                               alpha_range = alpha_range,
-                                              metrics = args.metrics,kfold = 5)
+                                              metric = args.metric,kfold = 5)
             alpha_language_only.append(alpha) 
 
             if (c == args.tot_eeg_chan-1) and (t == args.tot_eeg_time-1):
@@ -204,7 +204,7 @@ for t in range(args.tot_eeg_time-1):
 
                 
                     
-                file_name = '%s_%s_%s_%s.npy'%(args.language_model,args.metrics,args.tag,args.n)
+                file_name = '%s_%s_%s_%s.npy'%(args.language_model,args.metric,args.tag,args.n)
 
                 np.save(os.path.join(save_dir, file_name), data_dict)
 
@@ -219,7 +219,7 @@ for t in range(args.tot_eeg_time-1):
             
             y_pred_fusion[:,c,t], alpha, weight,flag = Grid_search_fusion(vision_feature_train,vision_feature_test,language_embedding_train,language_embedding_test,y_train[:,c,t],y_test[:,c,t],
                         alpha_range = alpha_range,weight_list = np.linspace(0,1000,41)/1000,
-                        metrics = args.metrics,kfold = 5)
+                        metric = args.metric,kfold = 5)
         
 
             alpha_fusion.append(alpha)
@@ -236,6 +236,6 @@ for t in range(args.tot_eeg_time-1):
                  }
 
                     
-                file_name = '%s_with_%s_%s_%s.npy'%(args.vision_model,args.language_model,args.metrics,args.tag,args.n)
+                file_name = '%s_with_%s_%s_%s.npy'%(args.vision_model,args.language_model,args.metric,args.tag,args.n)
 
                 np.save(os.path.join(save_dir, file_name), data_dict)
