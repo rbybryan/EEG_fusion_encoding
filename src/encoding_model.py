@@ -76,10 +76,7 @@ np.random.seed(42)
 
 embedding_file = 'gpt4_features_embedded_by_%s_pca.npy'%(args.language_model)
 print(embedding_file)
-save_dir = os.path.join(project_dir, 'linear_results', 'sub-'+
-                      format(args.sub,'02'), 'synthetic_eeg_data')
-if not op.exists(save_dir):
-    os.makedirs(save_dir) 
+
 
 ### Loading the embeded text features ###
 data_dict = np.load(op.join(args.project_dir,'gpt4_features', embedding_file), allow_pickle=True).item()
