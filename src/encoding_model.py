@@ -127,7 +127,7 @@ feature_path = op.join(args.project_dir,'pca_feature_maps/%s/pretrained-True/lay
 vision_feature_test = np.load(feature_path,allow_pickle=True).item()['all_layers'].astype(np.float32)
 
 vision_feature_train = vision_feature_train[:,:args.nfeature_vm]
-vision_feature_test = vision_feature_test[:,:args,nfeature_vm]
+vision_feature_test = vision_feature_test[:,:args.nfeature_vm]
 vision_feature_train = vision_feature_train[train_index]
 
 # identify alpha ranges to search for
