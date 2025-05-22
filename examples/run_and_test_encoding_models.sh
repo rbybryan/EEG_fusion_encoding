@@ -1,7 +1,7 @@
 #!/bin/bash
 cd src/
 
-python src/encoding_model.py \
+python encoding_model.py \
   --sub 4 \
   --vision_model cornet_s \
   --language_model text_embedding_large \
@@ -10,7 +10,7 @@ python src/encoding_model.py \
   --tag v1
 
 
-python src/correlation.py \
+python correlation.py \
   --sub 4 \
   --project_dir /scratch/byrong/encoding/data \
   --data_path_bio /scratch/byrong/encoding/data/eeg_dataset/preprocessed_eeg_data_v1 \
