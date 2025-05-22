@@ -7,7 +7,7 @@ from sklearn.metrics import mean_squared_error, r2_score, mean_absolute_error, m
 from sklearn.model_selection import KFold, GridSearchCV
 
 
-def grid_search_ridge(
+def grid_search(
     X_train: np.ndarray,
     X_test: np.ndarray,
     y_train: np.ndarray,
