@@ -13,7 +13,7 @@ def Grid_search(
     y_train: np.ndarray,
     y_test: np.ndarray,
     alpha_range: Union[Sequence[float], np.ndarray],
-    metric: str = 'mse',
+    metrics: str = 'mse',
     cv_splits: int = 5,
     n_jobs: int = -1,
 ) -> Tuple[np.ndarray, float, int]:
@@ -120,7 +120,7 @@ def Grid_search_fusion(
     y_test: np.ndarray,
     alpha_range: Union[Sequence[float], np.ndarray],
     weight_list: Union[Sequence[float], np.ndarray],
-    metric: str = 'mse',
+    metrics: str = 'mse',
     cv_splits: int = 5,
     n_jobs: int = -1,
 ) -> Tuple[np.ndarray, float, float, int]:
