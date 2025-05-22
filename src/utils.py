@@ -7,7 +7,7 @@ from sklearn.metrics import mean_squared_error, r2_score, mean_absolute_error, m
 from sklearn.model_selection import KFold, GridSearchCV
 
 
-def grid_search(
+def Grid_search(
     X_train: np.ndarray,
     X_test: np.ndarray,
     y_train: np.ndarray,
@@ -111,7 +111,7 @@ class WeightedRidge(BaseEstimator, RegressorMixin):
         return self.model_.predict(X)
 
 
-def grid_search_fusion(
+def Grid_search_fusion(
     X0_train: np.ndarray,
     X0_test: np.ndarray,
     X1_train: np.ndarray,
