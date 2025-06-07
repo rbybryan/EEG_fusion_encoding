@@ -236,6 +236,6 @@ for t in range(args.tot_eeg_time-1):
                  }
 
                     
-                file_name = '%s_with_%s_%s_%s.npy'%(args.vision_model,args.language_model,args.metric,args.tag,args.n)
+                file_name = '%s_with_%s_%s_%s_%s.npy'%(args.vision_model,args.language_model,args.metric,args.tag,args.n)
 
                 np.save(os.path.join(save_dir, file_name), data_dict)
