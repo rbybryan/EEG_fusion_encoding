@@ -1,0 +1,10 @@
+.DS_Store
+__pycache__/
+*.pyc
+*.pyo
+.ipynb_checkpoints/
+
+# logs / scratch outputs
+logs/
+slurm-*.out
+*.log
