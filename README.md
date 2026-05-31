@@ -1,72 +1,117 @@
 # EEG_fusion_encoding
 
-A small collection of Python scripts for:
-- **Encoding models** (ridge regression) with grid-search hyperparameter tuning
-- **Fusion encoding models** to combine vision and language features
-- **Correlation analysis** between EEG signals and model predictions
+Code for predicting EEG responses to natural images from **vision** and
+**language** model features, and for combining them in an early-fusion ridge
+**encoding model**. The pipeline covers the full path from the raw
+THINGS-EEG2 dataset and stimulus images to encoding-ready features, the encoding
+model itself, and the downstream statistical analyses.
+
+The language stream describes each image with GPT-4V and embeds the descriptions
+with a text-embedding model (headline: OpenAI `text-embedding-3-large`); the
+vision stream extracts CORnet-S features (plus AlexNet / ResNet-50 / SOTA
+controls). Both streams are PCA-reduced and entered into a per-time-point ridge
+encoding model, which is then evaluated with correlation, partial correlation,
+RSA, and variance partitioning.
 
 ---
 
-## 📦 Features
+## 🗂 Repository structure
 
-- **Ridge Regression Utilities**:
-  - Train single-source or fusion ridge regression models
-  - Automatic grid-search over regularization strengths
-
-- **Correlation Analysis**:
-  - Compute Pearson correlations between EEG recordings and model outputs
-  - Visualize results with python plots
+```text
+.
+├── README.md
+├── requirement.txt
+├── examples/
+│   └── run_and_test_encoding_models.sh   # end-to-end example
+└── src/
+    ├── preprocessing/                     # raw THINGS-EEG2 → preprocessed EEG
+    │   ├── preprocess_things_eeg_2.py     # CSD + z-score pipeline (canonical)
+    │   └── preprocessing_utils.py         # epoching / zscore / save
+    ├── features/
+    │   ├── vision/                        # image → DNN feature maps → PCA
+    │   │   ├── extract_feature_maps_cornet_s.py   # headline vision model
+    │   │   ├── sort_feature_maps_cornet_s.py
+    │   │   ├── extract_feature_maps_alexnet.py    # control
+    │   │   ├── extract_feature_maps_resnet50.py   # control
+    │   │   ├── extract_feature_maps_sota.py       # timm SOTA controls
+    │   │   ├── feature_maps_pca.py                # KernelPCA reduction
+    │   │   └── feature_maps_pca_comb.py
+    │   └── language/                      # image → GPT-4V caption → embedding
+    │       ├── generate_gpt4v_captions.py
+    │       ├── extract_text_embedding_3_large.py  # headline LLM
+    │       ├── extract_embeddings.py              # open-source embedders
+    │       ├── extract_e5_mistral_untrained_embeddings.py  # untrained control
+    │       ├── build_glove_embeddings.py          # non-contextual baseline
+    │       └── README.md
+    ├── encoding/                          # ridge / fusion encoding model
+    │   ├── encoding_model.py
+    │   ├── correlation.py
+    │   └── utils.py
+    └── analysis/                          # statistics on the predictions
+        ├── partial_correlation.py · run_partial_corr.py
+        ├── rsa.py · similarity_dnn_llm.py · between_within_category_rsa.py
+        ├── layerwise_shared_variance.py · crosslayer_shared_variance.py
+        ├── conditional_shared_variance_{tel,mistral}.py
+        ├── shared_variance_trained_vs_untrained.py · summarize_unique_r2.py
+        ├── tel_pca_dimensionality.py · cluster_stats.py
+        └── README.md
+```
 
 ---
 
 ## 🚀 Installation
 
-1. **Clone the repository**
-
-   ```bash
-   git clone https://github.com/rbybryan/EEG_fusion_encoding.git
-   cd EEG_fusion_encoding
-   ```
-
-2. **Create and activate a virtual environment** (optional)
-
-   ```bash
-   python3 -m venv venv
-   source venv/bin/activate    # Linux/macOS
-   venv\Scripts\activate     # Windows
-   ```
-
-3. **Install dependencies**
-
-   ```bash
-   pip install -r requirements.txt
-   ```
-
----
-
-## 🗂 Repository Structure
-
-```text
-.
-├── README.md
-├── LICENSE
-├── requirements.txt          # project dependencies
-├── src/
-│   ├── encoding_model.py     # train encoding/fusion ridge models
-│   ├── ridge_regression_utils.py  # core regression functions
-│   └── correlation.py        # compute and plot EEG/model correlations
-└── examples/
-    └── run_and_test_encoding_model.sh  # example usage script
+```bash
+git clone https://github.com/rbybryan/EEG_fusion_encoding.git
+cd EEG_fusion_encoding
+python3 -m venv venv && source venv/bin/activate   # optional
+pip install -r requirement.txt
 ```
 
----
-
-## 🔧 Usage
-
-### 1. Train an (Fusion) Encoding Model
+CORnet is installed from source:
 
 ```bash
-python src/encoding_model.py \
+pip install git+https://github.com/dicarlolab/CORnet.git
+```
+
+The OpenAI-based language scripts read the API key from the `OPENAI_API_KEY`
+environment variable; no key is stored in this repository.
+
+---
+
+## 🔧 Pipeline
+
+Most scripts take `--project_dir` (data location) and, in the analysis layer,
+honor the `EEG_FUSION_DATA` environment variable for the data root.
+
+### 1. Preprocess the EEG
+
+```bash
+python src/preprocessing/preprocess_things_eeg_2.py --sub 1 --project_dir $PROJECT_DIR
+```
+
+### 2. Extract features
+
+Vision (CORnet-S) and dimensionality reduction:
+
+```bash
+python src/features/vision/extract_feature_maps_cornet_s.py --project_dir $PROJECT_DIR
+python src/features/vision/sort_feature_maps_cornet_s.py    --project_dir $PROJECT_DIR
+python src/features/vision/feature_maps_pca.py --dnn cornet_s --layers all --n_components 1000 --project_dir $PROJECT_DIR
+```
+
+Language (GPT-4V captions → text-embedding-3-large):
+
+```bash
+export OPENAI_API_KEY=...
+python src/features/language/generate_gpt4v_captions.py        --project_dir $PROJECT_DIR
+python src/features/language/extract_text_embedding_3_large.py --project_dir $PROJECT_DIR
+```
+
+### 3. Train the encoding model
+
+```bash
+python src/encoding/encoding_model.py \
   --sub 4 \
   --vision_model cornet_s \
   --language_model text_embedding_large \
@@ -75,32 +120,44 @@ python src/encoding_model.py \
   --tag v1
 ```
 
-- `--sub`: Subject ID (integer)
-- `--vision_model`: Name of the vision model (e.g., `cornet_s`)
-- `--language_model`: Name of the language model (e.g., `text_embedding_large`)
-- `--fusion`: Include to enable feature fusion (vision + language)
-- `--project_dir`: Directory for input data and output results
-- `--tag`: Identifier for run/version
+| Flag | Meaning |
+| --- | --- |
+| `--sub` | Subject ID (integer) |
+| `--vision_model` | Vision model name (e.g. `cornet_s`) |
+| `--language_model` | Language model name (e.g. `text_embedding_large`) |
+| `--fusion` | Enable vision + language fusion |
+| `--vision_pretrained` | Use trained (vs randomly-initialised) vision features |
+| `--pca_dir` | Directory of PCA-reduced features |
+| `--project_dir` | Data / results directory |
+| `--tag` | Run identifier |
 
-Encoding results will be saved under:
-```
-$PROJECT_DIR/linear_results/sub-<sub>/synthetic_eeg_data/<vision_model>_with_<language_model>_r2_<tag>_all.npy
-```
+Results: `$PROJECT_DIR/linear_results/sub-<sub>/synthetic_eeg_data/<vision_model>_with_<language_model>_r2_<tag>_all.npy`
 
-### 2. Compute and Plot Correlations
+### 4. Correlate predictions with recorded EEG
 
 ```bash
-python src/correlation.py \
+python src/encoding/correlation.py \
   --sub 4 \
-  --project_dir /scratch/byrong/encoding/data \
-  --data_path_bio /scratch/byrong/encoding/data/eeg_dataset/preprocessed_eeg_data_v1 \
+  --project_dir $PROJECT_DIR \
+  --data_path_bio $PROJECT_DIR/eeg_dataset/preprocessed_eeg_data_v1 \
   --file cornet_s_with_text_embedding_large_r2_v1
 ```
 
-- `--data_path_bio`: Path to recorded EEG data
-- `--file`: Results file of predicted EEG data to correlate
+### 5. Analyses
 
-Correlation results will be saved under:
+See [`src/analysis/README.md`](src/analysis/README.md) for partial correlation,
+RSA, variance partitioning, and dimensionality analyses, e.g.:
+
+```bash
+export EEG_FUSION_DATA=$PROJECT_DIR
+python src/analysis/partial_correlation.py --sub 1
+python src/analysis/summarize_unique_r2.py
 ```
-$PROJECT_DIR/linear_results/sub-<sub>/correlation/correlation_<file>.npy
-```
+
+---
+
+## 📚 Data
+
+The pipeline expects the [THINGS-EEG2](https://osf.io/3jk45/) dataset and its
+stimulus image set under `--project_dir`. See the per-stage READMEs for the
+exact input/output file layout.

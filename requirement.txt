@@ -1,4 +1,25 @@
+# Core scientific stack
 numpy>=1.19.0
+scipy>=1.7.0
+pandas>=1.3.0
 scikit-learn>=0.24.0
 matplotlib>=3.3.0
 tqdm>=4.50.0
+
+# EEG preprocessing
+mne>=1.0.0
+
+# Vision feature extraction
+torch>=1.10.0
+torchvision>=0.11.0
+timm>=0.9.0
+Pillow>=8.0.0
+# CORnet-S (install from source):
+#   pip install git+https://github.com/dicarlolab/CORnet.git
+
+# Language feature extraction
+openai>=1.0.0            # text-embedding-3-large, GPT-4V captions
+requests>=2.25.0         # GPT-4V REST calls
+sentence-transformers>=2.2.0
+transformers>=4.30.0
+gensim>=4.0.0            # GloVe baseline
