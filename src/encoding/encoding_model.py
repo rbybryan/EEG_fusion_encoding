@@ -46,15 +46,29 @@ import random
 from utils import Grid_search,Grid_search_fusion
 
 
+def str2bool(value):
+    if isinstance(value, bool):
+        return value
+    value = value.lower()
+    if value in {'true', '1', 'yes', 'y'}:
+        return True
+    if value in {'false', '0', 'no', 'n'}:
+        return False
+    raise argparse.ArgumentTypeError(f'Expected a boolean value, got {value!r}')
+
+
 parser = argparse.ArgumentParser()
 parser.add_argument('--sub', type=int, default=4, help='Subject identifier')
 parser.add_argument('--tot_eeg_chan', type=int, default=63, help='Total number of EEG channels')
 parser.add_argument('--tot_eeg_time', type=int, default=180, help='Total number of EEG time points per trial')
 parser.add_argument('--vision_model', type=str, default='cornet_s', help='Vision model name')
+parser.add_argument('--vision_pretrained', type=str2bool, default=True,
+                    help='Whether to use pretrained vision PCA features')
 parser.add_argument('--language_model', type=str, default='text_embedding_large', help='Language model name')
 parser.add_argument('--nfeature_vm', type=int, default=1000, help='Number of vision feature components')
 parser.add_argument('--nfeature_lm', type=int, default=1000, help='Number of language feature components')
 parser.add_argument('--project_dir', type=str, default='/scratch/byrong/encoding/data', help='Root project directory')
+parser.add_argument('--pca_dir', type=str, default=None, help='Directory for pca_feature_maps; defaults to project_dir')
 parser.add_argument('--tag', type=str, default='v3', help='Version tag for output files')
 parser.add_argument('--metric', type=str, choices=['r2','mse','mae'], default='r2', help='Regression metric to optimize')
 parser.add_argument('--vision_only', action='store_true', help='Run visio-only encoding')
@@ -74,15 +88,24 @@ for key, val in vars(args).items():
 random.seed(42)
 np.random.seed(42)
 
+pca_dir = args.pca_dir if args.pca_dir is not None else args.project_dir
+vision_pretrained_dir = f'pretrained-{args.vision_pretrained}'
+vision_output_name = args.vision_model if args.vision_pretrained else f'{args.vision_model}_untrained'
+
 embedding_file = 'gpt4_features_embedded_by_%s_pca.npy'%(args.language_model)
 print(embedding_file)
 
 
 ### Loading the embeded text features ###
 data_dict = np.load(op.join(args.project_dir,'gpt4_features', embedding_file), allow_pickle=True).item()
-language_embedding_train = data_dict['embedding_train'].astype(np.float32)
 train_index = data_dict['train_index']
-language_embedding_test = data_dict['embedding_test'].astype(np.float32)
+# Handle both key naming conventions
+if 'embedding_train' in data_dict:
+    language_embedding_train = data_dict['embedding_train'].astype(np.float32)
+    language_embedding_test = data_dict['embedding_test'].astype(np.float32)
+else:
+    language_embedding_train = data_dict['text_features_train_long'].astype(np.float32)
+    language_embedding_test = data_dict['text_features_test_long'].astype(np.float32)
 
 # Average across five versions if not 
 if language_embedding_train.shape[0] == 5:
@@ -121,9 +144,27 @@ y_test = np.mean(y_test, 1)
 y_test = y_test[:,:args.tot_eeg_chan]
 
 
-feature_path = op.join(args.project_dir,'pca_feature_maps/%s/pretrained-True/layers-all/pca_feature_maps_training.npy'%args.vision_model)
+feature_path = op.join(
+    pca_dir,
+    'pca_feature_maps',
+    args.vision_model,
+    vision_pretrained_dir,
+    'layers-all',
+    'pca_feature_maps_training.npy',
+)
+if not op.exists(feature_path):
+    raise FileNotFoundError(f'Missing vision training PCA features: {feature_path}')
 vision_feature_train = np.load(feature_path,allow_pickle=True).item()['all_layers'].astype(np.float32)
-feature_path = op.join(args.project_dir,'pca_feature_maps/%s/pretrained-True/layers-all/pca_feature_maps_test.npy'%args.vision_model)
+feature_path = op.join(
+    pca_dir,
+    'pca_feature_maps',
+    args.vision_model,
+    vision_pretrained_dir,
+    'layers-all',
+    'pca_feature_maps_test.npy',
+)
+if not op.exists(feature_path):
+    raise FileNotFoundError(f'Missing vision test PCA features: {feature_path}')
 vision_feature_test = np.load(feature_path,allow_pickle=True).item()['all_layers'].astype(np.float32)
 
 vision_feature_train = vision_feature_train[:,:args.nfeature_vm]
@@ -159,7 +200,7 @@ if not op.exists(save_dir):
     os.makedirs(save_dir)
 
 # iterative grid search loops for vision_only, language_only, and fusion
-for t in range(args.tot_eeg_time-1):
+for t in range(args.tot_eeg_time):
     for c in range(args.tot_eeg_chan):
         
         if args.vision_only:
@@ -179,7 +220,7 @@ for t in range(args.tot_eeg_time-1):
                 }
 
                 
-                file_name = '%s_%s_%s_%s.npy'%(args.vision_model,args.metric,args.tag,args.n)
+                file_name = '%s_%s_%s_%s.npy'%(vision_output_name,args.metric,args.tag,args.n)
 
                 np.save(os.path.join(save_dir, file_name), data_dict)
 
@@ -236,6 +277,6 @@ for t in range(args.tot_eeg_time-1):
                  }
 
                     
-                file_name = '%s_with_%s_%s_%s_%s.npy'%(args.vision_model,args.language_model,args.metric,args.tag,args.n)
+                file_name = '%s_with_%s_%s_%s_%s.npy'%(vision_output_name,args.language_model,args.metric,args.tag,args.n)
 
                 np.save(os.path.join(save_dir, file_name), data_dict)

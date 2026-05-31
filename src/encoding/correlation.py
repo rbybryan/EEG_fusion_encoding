@@ -1,5 +1,7 @@
 import os
 import numpy as np
+import matplotlib
+matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import tqdm
 import argparse
@@ -28,7 +30,7 @@ def plot_correlation(synt_test, bio_test, ch_names, times, model_name, sub, data
     """
 
     # Adjust synthetic data dimensions
-    synt_test = synt_test.reshape(200, -1, 100)[:, :63, :]
+    synt_test = synt_test[:, :63, :]
     bio_test = bio_test[:, :, :63, :]
 
     # Initialize result matrices
@@ -77,7 +79,8 @@ def plot_correlation(synt_test, bio_test, ch_names, times, model_name, sub, data
     plt.ylabel("Correlation")
     plt.legend()
     plt.title(f'Subject {sub:02}')
-    plt.show()
+    plot_path = os.path.join(save_dir, f'correlation_{model_name}.png')
+    plt.savefig(plot_path)
     plt.close()
 
 
