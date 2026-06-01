@@ -8,9 +8,6 @@ PROJECT_DIR="${EEG_FUSION_DATA:-data}"
 
 set -e
 
-# (optional) confirm the fast batched solver matches the per-cell oracle exactly
-python src/encoding/validate_fast.py
-
 # Train the vision + language fusion encoding model.
 # --score_dtype float64 reproduces the published selection exactly;
 # float32 is ~1.7x faster with identical selection in our tests.

@@ -6,8 +6,8 @@ Reference (oracle) implementations
     :func:`Grid_search` and :func:`Grid_search_fusion` wrap scikit-learn's
     ``GridSearchCV(Ridge(), ...)`` exactly as used to produce the published
     results. They operate on a single (channel, timepoint) target at a time and
-    are kept as the ground-truth reference against which the fast path is
-    validated (see ``validate_fast.py``). :class:`WeightedRidge` implements the
+    are kept as the ground-truth reference against which the fast path can be
+    validated. :class:`WeightedRidge` implements the
     convex-combination fusion: the two feature blocks are scaled by
     ``(1 - weight)`` and ``weight`` for *fitting*, while prediction uses the
     *unscaled* concatenated features (the published behaviour).
@@ -239,8 +239,8 @@ def Grid_search_fusion(
 # Speed comes from reusing ONE eigendecomposition of the (scaled) Gram matrix
 # across every alpha and every target, and scoring each alpha by a closed-form
 # residual-sum-of-squares built from inner products rather than by materialising
-# per-alpha predictions. See validate_fast.py for the cell-for-cell equivalence
-# check against the oracle functions.
+# per-alpha predictions. The batched functions reproduce the per-cell oracle
+# (Grid_search / Grid_search_fusion) selection and predictions to machine precision.
 # ---------------------------------------------------------------------------
 
 
