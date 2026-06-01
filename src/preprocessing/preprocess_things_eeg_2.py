@@ -81,9 +81,12 @@ parser.add_argument('--csd', default=1, type=int,
 parser.add_argument('--sfreq', default=200, type=int,
                     help='Downsampling frequency.')
 parser.add_argument('--things_eeg_2_dir',
-                    default='/scratch/giffordale95/datasets/things_eeg_2',
+                    default=os.environ.get('THINGS_EEG_2_DIR',
+                                           os.path.join(os.environ.get('EEG_FUSION_DATA', 'data'),
+                                                        'things_eeg_2')),
                     type=str,
-                    help='Directory of the THINGS EEG2 dataset.')
+                    help='Directory of the THINGS EEG2 dataset. Defaults to '
+                         '$THINGS_EEG_2_DIR, else <EEG_FUSION_DATA>/things_eeg_2.')
 parser.add_argument('--project_dir', default=os.environ.get('EEG_FUSION_DATA', 'data'),
                     type=str,
                     help='Directory of the project folder.')
