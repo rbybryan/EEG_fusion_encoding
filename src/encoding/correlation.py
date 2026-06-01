@@ -4,6 +4,11 @@ This script loads biological (test) EEG data and synthetic EEG data produced by
 a linearizing encoding model, computes the per-channel/per-time-point Pearson
 correlation between them together with lower- and upper-bound noise ceilings,
 saves the results, and produces a summary correlation plot.
+
+The correlation is vectorised over channels and time. The split-half resampling
+is drawn in the identical order, and time points whose synthetic data are all
+zero are left at zero, so the averaged results match the original per-cell
+``np.corrcoef`` loop while running substantially faster.
 """
 
 import os
@@ -37,6 +42,9 @@ def plot_correlation(synt_test, bio_test, ch_names, times, model_name, sub, data
     data_path : str
         Path to save the correlation results.
     """
+    # Match the manuscript correlation pipeline's deterministic split-half draws.
+    np.random.seed(seed=20200220)
+
     # Adjust synthetic data dimensions
     synt_test = synt_test[:, :63, :]
     bio_test = bio_test[:, :, :63, :]
@@ -50,18 +58,34 @@ def plot_correlation(synt_test, bio_test, ch_names, times, model_name, sub, data
     # Average across all repetitions for upper bound noise ceiling
     bio_data_avg_all = np.mean(bio_test, axis=1)
 
-    # Compute correlation
+    # Time points with all-zero synthetic data are left at zero, reproducing the
+    # original per-cell loop which skipped them via `if np.sum(...) != 0`.
+    time_mask = synt_test.sum(axis=(0, 1)) != 0   # (time_points,)
+
+    def _pearson_over_conditions(a, b):
+        """Pearson r along the condition axis (axis 0); returns (channels, time)."""
+        a = a - a.mean(axis=0, keepdims=True)
+        b = b - b.mean(axis=0, keepdims=True)
+        num = (a * b).sum(axis=0)
+        den = np.sqrt((a ** 2).sum(axis=0) * (b ** 2).sum(axis=0))
+        with np.errstate(divide='ignore', invalid='ignore'):
+            return num / den
+
+    # Compute correlation. Vectorised over channels and time; the split-half
+    # resampling is drawn in the identical order as before, so the averaged
+    # results match the original per-cell np.corrcoef loop.
     for i in tqdm.tqdm(range(iterations), desc="Computing correlations"):
         shuffle_idx = resample(np.arange(bio_test.shape[1]), replace=False)[:bio_test.shape[1] // 2]
         bio_data_avg_half_1 = np.mean(np.delete(bio_test, shuffle_idx, axis=1), axis=1)
         bio_data_avg_half_2 = np.mean(bio_test[:, shuffle_idx, :, :], axis=1)
 
-        for t in range(time_points):
-            if np.sum(synt_test[:, :, t]) != 0:
-                for c in range(channels):
-                    correlation_end[i, c, t] = np.corrcoef(synt_test[:, c, t], bio_data_avg_half_1[:, c, t])[0, 1]
-                    noise_ceiling_low[i, c, t] = np.corrcoef(bio_data_avg_half_2[:, c, t], bio_data_avg_half_1[:, c, t])[0, 1]
-                    noise_ceiling_up[i, c, t] = np.corrcoef(bio_data_avg_all[:, c, t], bio_data_avg_half_1[:, c, t])[0, 1]
+        corr = _pearson_over_conditions(synt_test, bio_data_avg_half_1)
+        ncl = _pearson_over_conditions(bio_data_avg_half_2, bio_data_avg_half_1)
+        ncu = _pearson_over_conditions(bio_data_avg_all, bio_data_avg_half_1)
+
+        correlation_end[i] = np.where(time_mask[None, :], corr, 0.0)
+        noise_ceiling_low[i] = np.where(time_mask[None, :], ncl, 0.0)
+        noise_ceiling_up[i] = np.where(time_mask[None, :], ncu, 0.0)
 
     # Average results across iterations
     correlation = correlation_end.mean(axis=0)
@@ -95,8 +119,13 @@ def plot_correlation(synt_test, bio_test, ch_names, times, model_name, sub, data
 # Argument parser setup
 parser = argparse.ArgumentParser()
 parser.add_argument('--sub', type=int, default=4, help='Subject identifier')
-parser.add_argument('--project_dir', type=str, default=os.environ.get('EEG_FUSION_DATA', 'data'), help='Root project directory')
-parser.add_argument('--data_path_bio', type=str, default=os.path.join(os.environ.get('EEG_FUSION_DATA', 'data'), 'eeg_dataset', 'preprocessed_eeg_data_v1'))
+parser.add_argument('--project_dir', type=str,
+                    default=os.environ.get('EEG_FUSION_DATA', 'data'),
+                    help='Root project directory')
+parser.add_argument('--data_path_bio', type=str,
+                    default=os.path.join(os.environ.get('EEG_FUSION_DATA', 'data'),
+                                         'eeg_dataset', 'preprocessed_eeg_data_v1'),
+                    help='Directory holding the preprocessed test EEG')
 parser.add_argument('--file', type=str, required=True, help='Synthetic EEG data file name')
 
 args = parser.parse_args()
@@ -112,12 +141,14 @@ ch_names = bio_data['ch_names']
 times = bio_data['times']
 
 synt_file = os.path.join(args.project_dir, 'linear_results', 'sub-' +
-              format(args.sub, '02'), 'synthetic_eeg_data', args.file)
+                         format(args.sub, '02'), 'synthetic_eeg_data', args.file)
 synt_data = np.load(synt_file, allow_pickle=True).item()
 
 synt_test = synt_data['synthetic_data']
 
-correlation_file = os.path.join(args.project_dir, 'linear_results', f'sub-{args.sub:02}', 'correlation', f'correlation_{model_name}.npy')
+correlation_file = os.path.join(args.project_dir, 'linear_results', f'sub-{args.sub:02}',
+                                'correlation', f'correlation_{model_name}.npy')
 
 if not os.path.exists(correlation_file):
-    plot_correlation(synt_test, bio_test, ch_names, times, model_name, args.sub, os.path.join(args.project_dir, 'linear_results'))
+    plot_correlation(synt_test, bio_test, ch_names, times, model_name, args.sub,
+                     os.path.join(args.project_dir, 'linear_results'))

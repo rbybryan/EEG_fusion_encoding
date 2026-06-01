@@ -1,4 +1,4 @@
-"""Predict the EEG responses using features from DNN models.
+"""Predict the EEG responses using features from DNN and language models.
 
 Parameters
 ----------
@@ -34,6 +34,16 @@ n_split : int
     Number of parallel splits for time slicing.
 n : int
     Zero-based index of the current split to process.
+
+Notes
+-----
+All (channel, timepoint) cells are solved together as columns of a single target
+matrix. The batched solvers (``grid_search_batched`` / ``grid_search_fusion_batched``
+in utils.py) reproduce the per-cell ``Grid_search`` / ``Grid_search_fusion``
+selection and predictions exactly (same alpha grid, same KFold(5, shuffle,
+random_state=42) CV, per-target alpha, and the convex-combination
+train-scaled / test-unscaled fusion of ``WeightedRidge``), so partitioning the
+time axis is now optional rather than necessary for tractability.
 """
 
 import argparse
@@ -43,7 +53,7 @@ import random
 
 import numpy as np
 
-from utils import Grid_search, Grid_search_fusion
+from utils import grid_search_batched, grid_search_fusion_batched
 
 
 def str2bool(value):
@@ -94,17 +104,22 @@ parser.add_argument('--project_dir', type=str,
                     default=os.environ.get('EEG_FUSION_DATA', 'data'),
                     help='Root project directory')
 parser.add_argument('--pca_dir', type=str, default=None,
-                    help='Directory for pca_feature_maps; defaults to project_dir')
+                    help='Directory containing pca_feature_maps; defaults to project_dir')
 parser.add_argument('--tag', type=str, default='v3', help='Version tag for output files')
 parser.add_argument('--metric', type=str, choices=['r2', 'mse', 'mae'], default='r2',
                     help='Regression metric to optimize')
-parser.add_argument('--vision_only', action='store_true', help='Run visio-only encoding')
+parser.add_argument('--vision_only', action='store_true', help='Run image-only encoding')
 parser.add_argument('--language_only', action='store_true', help='Run text-only encoding')
 parser.add_argument('--fusion', action='store_true', help='Run image-text fusion encoding')
 parser.add_argument('--partition', action='store_true', help='Run the script on separate CPUs')
 parser.add_argument('--n_split', type=int, default=90, help='Number of parallel time splits')
 parser.add_argument('--n', type=int, default=0, help='Zero-based split index to process')
+parser.add_argument('--score_dtype', type=str, choices=['float64', 'float32'], default='float64',
+                    help='CV scoring precision. float64 reproduces the published selection '
+                         'exactly; float32 is ~1.7x faster with identical selection in our '
+                         'tests. Final predictions are always float64.')
 args = parser.parse_args()
+score_dtype = np.float64 if args.score_dtype == 'float64' else np.float32
 
 print('>>> Ridge encoding <<<')
 print('\nInput parameters:')
@@ -137,11 +152,11 @@ else:
     language_embedding_train = data_dict['text_features_train_long'].astype(np.float32)
     language_embedding_test = data_dict['text_features_test_long'].astype(np.float32)
 
-# Average across five versions if not
+# Average across five versions if not already averaged
 if language_embedding_train.shape[0] == 5:
     language_embedding_train = np.average(language_embedding_train, axis=0)
     language_embedding_test = np.average(language_embedding_test, axis=0)
-# Take the first n principle component for language embeddings
+# Take the first n principal components for the language embeddings
 n = language_embedding_train.shape[-1]
 if n > args.nfeature_lm:
     language_embedding_train = language_embedding_train[:, :args.nfeature_lm]
@@ -203,8 +218,9 @@ vision_feature_train = vision_feature_train[:, :args.nfeature_vm]
 vision_feature_test = vision_feature_test[:, :args.nfeature_vm]
 vision_feature_train = vision_feature_train[train_index]
 
-# identify alpha ranges to search for
+# identify alpha ranges and convex weights to search over
 alpha_range = np.logspace(-3, 7, 100)
+weight_list = np.linspace(0, 1000, 41) / 1000
 
 if args.partition:
     ## select the slices of data for distributing computation on different cpus
@@ -215,15 +231,16 @@ if args.partition:
 else:
     args.n = 'all'
 
-# Initialize predictions and results
-y_pred_vision_only = np.zeros(y_test.shape)
-y_pred_fusion = np.zeros(y_test.shape)
-y_pred_language_only = np.zeros(y_test.shape)
-alpha_vision_only, alpha_fusion, alpha_language_only = [], [], []
-weight_fusion = []
-flag_fusion = []
+chan = args.tot_eeg_chan
+tp = args.tot_eeg_time
+n_train = y_train.shape[0]
+n_test = y_test.shape[0]
 
-print("after slicing:", args.tot_eeg_time, y_train.shape, y_test.shape)
+print("after slicing:", tp, y_train.shape, y_test.shape)
+
+# Stack every (channel, timepoint) cell as a column -> solve all targets at once.
+# Target column index is j = c * tp + t (reshape of (n, chan, tp) in C-order).
+Y_train_2d = y_train.reshape(n_train, chan * tp)
 
 save_dir = os.path.join(args.project_dir, 'linear_results', 'sub-' +
                         format(args.sub, '02'), 'synthetic_eeg_data')
@@ -231,80 +248,60 @@ save_dir = os.path.join(args.project_dir, 'linear_results', 'sub-' +
 if not op.exists(save_dir):
     os.makedirs(save_dir)
 
-# iterative grid search loops for vision_only, language_only, and fusion
-for t in range(args.tot_eeg_time):
-    for c in range(args.tot_eeg_chan):
 
-        if args.vision_only:
+def _to_save_order(arr):
+    """Per-target (j = c*tp + t) -> the original per-cell append order (t-major, c-minor)."""
+    return list(np.asarray(arr).reshape(chan, tp).T.flatten())
 
-            y_pred_vision_only[:, c, t], alpha, flag = Grid_search(
-                vision_feature_train, vision_feature_test,
-                y_train[:, c, t], y_test[:, c, t],
-                alpha_range=alpha_range,
-                metric=args.metric, kfold=5)
 
-            alpha_vision_only.append(alpha)
+# Vision-only encoding
+if args.vision_only:
+    Y_pred, best_alpha, _ = grid_search_batched(
+        vision_feature_train, vision_feature_test, Y_train_2d,
+        alpha_range=alpha_range, kfold=5, metric=args.metric, score_dtype=score_dtype)
+    y_pred_vision_only = Y_pred.reshape(n_test, chan, tp)
+    data_dict = {
+        'synthetic_data': y_pred_vision_only,
+        'ch_names': ch_names,
+        'times': times,
+        'alpha': _to_save_order(best_alpha),
+    }
+    file_name = '%s_%s_%s_%s.npy' % (vision_output_name, args.metric, args.tag, args.n)
+    np.save(os.path.join(save_dir, file_name), data_dict)
 
-            if (c == args.tot_eeg_chan - 1) and (t == args.tot_eeg_time - 1):
-                data_dict = {
-                    'synthetic_data': y_pred_vision_only,
-                    'ch_names': ch_names,
-                    'times': times,
-                    'alpha': alpha_vision_only,
-                }
 
-                file_name = '%s_%s_%s_%s.npy' % (
-                    vision_output_name, args.metric, args.tag, args.n)
+# Language-only encoding
+if args.language_only:
+    Y_pred, best_alpha, _ = grid_search_batched(
+        language_embedding_train, language_embedding_test, Y_train_2d,
+        alpha_range=alpha_range, kfold=5, metric=args.metric, score_dtype=score_dtype)
+    y_pred_language_only = Y_pred.reshape(n_test, chan, tp)
+    data_dict = {
+        'synthetic_data': y_pred_language_only,
+        'ch_names': ch_names,
+        'times': times,
+        'alpha': _to_save_order(best_alpha),
+    }
+    file_name = '%s_%s_%s_%s.npy' % (args.language_model, args.metric, args.tag, args.n)
+    np.save(os.path.join(save_dir, file_name), data_dict)
 
-                np.save(os.path.join(save_dir, file_name), data_dict)
 
-        if args.language_only:
-
-            y_pred_language_only[:, c, t], alpha, flag = Grid_search(
-                language_embedding_train, language_embedding_test,
-                y_train[:, c, t], y_test[:, c, t],
-                alpha_range=alpha_range,
-                metric=args.metric, kfold=5)
-            alpha_language_only.append(alpha)
-
-            if (c == args.tot_eeg_chan - 1) and (t == args.tot_eeg_time - 1):
-                data_dict = {
-                    'synthetic_data': y_pred_language_only,
-                    'ch_names': ch_names,
-                    'times': times,
-                    'alpha': alpha_language_only,
-                }
-
-                file_name = '%s_%s_%s_%s.npy' % (
-                    args.language_model, args.metric, args.tag, args.n)
-
-                np.save(os.path.join(save_dir, file_name), data_dict)
-
-        # fusing representations
-        if args.fusion:
-
-            y_pred_fusion[:, c, t], alpha, weight, flag = Grid_search_fusion(
-                vision_feature_train, vision_feature_test,
-                language_embedding_train, language_embedding_test,
-                y_train[:, c, t], y_test[:, c, t],
-                alpha_range=alpha_range, weight_list=np.linspace(0, 1000, 41) / 1000,
-                metric=args.metric, kfold=5)
-
-            alpha_fusion.append(alpha)
-            weight_fusion.append(weight)
-            flag_fusion.append(flag)
-            if (c == args.tot_eeg_chan - 1) and (t == args.tot_eeg_time - 1):
-                data_dict = {
-                    'synthetic_data': y_pred_fusion,
-                    'ch_names': ch_names,
-                    'times': times,
-                    'alpha': alpha_fusion,
-                    'weight': weight_fusion,
-                    'flag': flag_fusion,
-                }
-
-                file_name = '%s_with_%s_%s_%s_%s.npy' % (
-                    vision_output_name, args.language_model, args.metric,
-                    args.tag, args.n)
-
-                np.save(os.path.join(save_dir, file_name), data_dict)
+# Image-text fusion encoding (convex combination preserved exactly)
+if args.fusion:
+    Y_pred, best_alpha, best_weight, flag = grid_search_fusion_batched(
+        vision_feature_train, vision_feature_test,
+        language_embedding_train, language_embedding_test, Y_train_2d,
+        alpha_range=alpha_range, weight_list=weight_list,
+        kfold=5, metric=args.metric, score_dtype=score_dtype)
+    y_pred_fusion = Y_pred.reshape(n_test, chan, tp)
+    data_dict = {
+        'synthetic_data': y_pred_fusion,
+        'ch_names': ch_names,
+        'times': times,
+        'alpha': _to_save_order(best_alpha),
+        'weight': _to_save_order(best_weight),
+        'flag': _to_save_order(flag),
+    }
+    file_name = '%s_with_%s_%s_%s_%s.npy' % (
+        vision_output_name, args.language_model, args.metric, args.tag, args.n)
+    np.save(os.path.join(save_dir, file_name), data_dict)

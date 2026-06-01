@@ -44,16 +44,15 @@ RSA, and variance partitioning.
     │       ├── build_glove_embeddings.py          # non-contextual baseline
     │       └── README.md
     ├── encoding/                          # ridge / fusion encoding model
-    │   ├── encoding_model.py
-    │   ├── correlation.py
-    │   └── utils.py
+    │   ├── encoding_model.py              # fast batched driver
+    │   ├── utils.py                       # batched solvers + per-cell oracle
+    │   ├── validate_fast.py              # batched-vs-oracle equivalence check
+    │   └── correlation.py
     └── analysis/                          # statistics on the predictions
         ├── partial_correlation.py · run_partial_corr.py
         ├── rsa.py · similarity_dnn_llm.py · between_within_category_rsa.py
-        ├── layerwise_shared_variance.py · crosslayer_shared_variance.py
-        ├── conditional_shared_variance_{tel,mistral}.py
-        ├── shared_variance_trained_vs_untrained.py · summarize_unique_r2.py
-        ├── tel_pca_dimensionality.py · cluster_stats.py
+        ├── variance_partitioning.py       # unique + shared variance (any model pair)
+        ├── time_frequency_decomposition.py · cluster_stats.py
         └── README.md
 ```
 
@@ -140,7 +139,7 @@ python src/encoding/correlation.py \
   --sub 4 \
   --project_dir $PROJECT_DIR \
   --data_path_bio $PROJECT_DIR/eeg_dataset/preprocessed_eeg_data_v1 \
-  --file cornet_s_with_text_embedding_large_r2_v1
+  --file cornet_s_with_text_embedding_large_r2_v1_all
 ```
 
 ### 5. Analyses

@@ -13,12 +13,15 @@ channel and time point:
     UV(A|B)  = R2(AB) - R2(B)            variance unique to A
     UV(B|A)  = R2(AB) - R2(A)            variance unique to B
 
-Each R2 is the squared Pearson correlation between a model prediction and a
-split-half average of the recorded EEG, computed independently per channel and
-time point and averaged over split-half resampling iterations (the same
-convention as ``correlation.py`` / ``partial_correlation.py``). This single
-script replaces the model-specific shared-variance scripts: pass any pair of
-models plus their fusion via ``--pred_a / --pred_b / --pred_ab``.
+Each R2 is the *adjusted* R2 of a model prediction against a split-half average
+of the recorded EEG: the squared Pearson correlation is computed across images
+independently per channel and time point, then bias-corrected with
+``R2_adj = 1 - (1 - R2)(n - 1)/(n - p - 1)`` (n images, p = 1 predictor). The
+correction is applied per split-half resampling iteration and then averaged,
+which removes the positive small-sample bias of squared r so the shared-variance
+baseline sits at ~0. This is the canonical variance-partitioning estimator. This
+single script replaces the model-specific shared-variance scripts: pass any pair
+of models plus their fusion via ``--pred_a / --pred_b / --pred_ab``.
 
 Inputs (per subject, under ``<project_dir>/linear_results``):
     synthetic predictions  linear_results/sub-XX/synthetic_eeg_data/<name>[_all].npy
@@ -85,7 +88,22 @@ def load_bio(project_dir, sub):
 
 
 def r2_single(pred, bio_half):
-    """Vectorised squared Pearson r between a prediction and the target.
+    """Adjusted R2 between a single-predictor model prediction and the target.
+
+    Computes the squared Pearson correlation across images for each
+    (channel, time), then applies the adjusted-R2 (shrinkage) correction
+
+        R2_adj = 1 - (1 - R2) * (n - 1) / (n - p - 1)
+
+    with ``n`` the number of images and ``p = 1`` predictor (the model
+    prediction is a single regressor against the recorded EEG). The adjustment
+    removes the positive small-sample bias of squared Pearson r
+    (``E[R2] ~ 1 / (n - 1)`` under the null), so the shared-variance baseline
+    sits at ~0 rather than ~+1/(n - 1). This is the canonical variance-
+    partitioning estimator; the correction is applied per split-half iteration
+    (in ``partition_subject``, before averaging), which is required for the bias
+    removal to hold. The result is intentionally NOT clipped at 0 - clipping
+    would reintroduce the positive bias the adjustment exists to remove.
 
     Parameters
     ----------
@@ -96,13 +114,15 @@ def r2_single(pred, bio_half):
     Returns
     -------
     numpy.ndarray
-        R2 of shape (channels, time).
+        Adjusted R2 of shape (channels, time).
     """
+    n = pred.shape[0]
     pred_c = pred - pred.mean(axis=0, keepdims=True)
     bio_c = bio_half - bio_half.mean(axis=0, keepdims=True)
     num = np.sum(pred_c * bio_c, axis=0) ** 2
     den = np.sum(pred_c ** 2, axis=0) * np.sum(bio_c ** 2, axis=0)
-    return np.divide(num, den, out=np.zeros_like(num), where=den > 0)
+    r2 = np.divide(num, den, out=np.zeros_like(num), where=den > 0)
+    return 1.0 - (1.0 - r2) * (n - 1) / (n - 2)   # p = 1  =>  n - p - 1 = n - 2
 
 
 def partition_subject(project_dir, sub, name_a, name_b, name_ab, iterations, seed):

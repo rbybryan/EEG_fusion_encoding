@@ -33,7 +33,7 @@ python src/analysis/partial_correlation.py --sub 1
 ### Variance partitioning
 | Script | Role |
 | --- | --- |
-| `variance_partitioning.py` | Unique (UV) and shared (SV) variance between **any** two models and their fusion, via the Borcard-Legendre three-way partition. Pass `--pred_a`, `--pred_b`, `--pred_ab`. |
+| `variance_partitioning.py` | Unique (UV) and shared (SV) variance between **any** two models and their fusion, via the Borcard-Legendre three-way partition. Each R² is bias-corrected adjusted R² (`1 − (1 − R²)(n − 1)/(n − p − 1)`, p = 1), applied per split-half iteration so the shared-variance baseline sits at ~0. Pass `--pred_a`, `--pred_b`, `--pred_ab`. |
 
 ```bash
 python src/analysis/variance_partitioning.py \
