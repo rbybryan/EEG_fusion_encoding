@@ -95,8 +95,8 @@ def plot_correlation(synt_test, bio_test, ch_names, times, model_name, sub, data
 # Argument parser setup
 parser = argparse.ArgumentParser()
 parser.add_argument('--sub', type=int, default=4, help='Subject identifier')
-parser.add_argument('--project_dir', type=str, default='/scratch/byrong/encoding/data', help='Root project directory')
-parser.add_argument('--data_path_bio', type=str, default='/scratch/byrong/encoding/data/eeg_dataset/preprocessed_eeg_data_v1')
+parser.add_argument('--project_dir', type=str, default=os.environ.get('EEG_FUSION_DATA', 'data'), help='Root project directory')
+parser.add_argument('--data_path_bio', type=str, default=os.path.join(os.environ.get('EEG_FUSION_DATA', 'data'), 'eeg_dataset', 'preprocessed_eeg_data_v1'))
 parser.add_argument('--file', type=str, required=True, help='Synthetic EEG data file name')
 
 args = parser.parse_args()

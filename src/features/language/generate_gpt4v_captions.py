@@ -39,7 +39,7 @@ MAX_TOKENS = 1000
 
 def parse_args():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--project_dir', default='/scratch/byrong/encoding/data',
+    parser.add_argument('--project_dir', default=os.environ.get('EEG_FUSION_DATA', 'data'),
                         type=str, help='Project directory holding image_set/.')
     parser.add_argument('--out_csv', default=None, type=str,
                         help='Output CSV path (default: '

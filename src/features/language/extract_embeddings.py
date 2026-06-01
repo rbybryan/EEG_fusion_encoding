@@ -29,7 +29,7 @@ os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "expandable_segments:True"
 # =============================================================================
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--project_dir', default='/scratch/byrong/encoding/data', type=str,
+parser.add_argument('--project_dir', default=os.environ.get('EEG_FUSION_DATA', 'data'), type=str,
                     help="Root directory containing the input CSV and output folders.")
 parser.add_argument('--embedding_model', nargs='+', type=str,
                     help="One or more embedding model names. E.g., "

@@ -208,7 +208,7 @@ def main():
     # Argument parser setup
     parser = argparse.ArgumentParser(description='Compute partial correlations for EEG encoding models')
     parser.add_argument('--sub', type=int, default=4, help='Subject identifier')
-    parser.add_argument('--project_dir', type=str, default='/scratch/byrong/encoding/data', 
+    parser.add_argument('--project_dir', type=str, default=os.environ.get('EEG_FUSION_DATA', 'data'), 
                        help='Root project directory')
     parser.add_argument('--fusion_file', type=str, required=True,
                        help='Fusion model file name (without .npy extension)')

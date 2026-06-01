@@ -42,7 +42,7 @@ parser.add_argument('--layers', default='all', type=str,
                     help="Whether to use 'all' or 'single' layers.")
 parser.add_argument('--n_components', default=10000, type=int,
                     help='Number of PCA components retained.')
-parser.add_argument('--project_dir', default='/scratch/byrong/encoding/data',
+parser.add_argument('--project_dir', default=os.environ.get('EEG_FUSION_DATA', 'data'),
                     type=str, help='Directory of the project folder.')
 args = parser.parse_args()
 

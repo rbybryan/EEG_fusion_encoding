@@ -46,7 +46,7 @@ N_VERSIONS = 5
 
 def parse_args():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--project_dir', default='/scratch/byrong/encoding/data',
+    parser.add_argument('--project_dir', default=os.environ.get('EEG_FUSION_DATA', 'data'),
                         type=str, help='Project directory holding gpt4_features/.')
     parser.add_argument('--input_csv', default=None, type=str,
                         help='Cleaned 5-version descriptions CSV (default: '

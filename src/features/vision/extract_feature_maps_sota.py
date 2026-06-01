@@ -36,7 +36,7 @@ parser.add_argument('--model', type=str, default='convnext_xlarge',
                     choices=['convnext_xlarge', 'tf_efficientnetv2_l'],
                     help='Model name from timm')
 parser.add_argument('--pretrained', default='True', type=str)
-parser.add_argument('--project_dir', default='/scratch/byrong/encoding/data',
+parser.add_argument('--project_dir', default=os.environ.get('EEG_FUSION_DATA', 'data'),
                     type=str)
 args = parser.parse_args()
 

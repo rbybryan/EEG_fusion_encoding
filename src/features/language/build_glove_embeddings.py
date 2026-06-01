@@ -15,7 +15,7 @@ language embeddings (extract_embeddings.py), so the output aligns 1:1 with the
 EEG and vision features in the encoding pipeline.
 
 Output (consumed by encoding_model.py via --language_model glove):
-    /scratch/byrong/encoding/data/gpt4_features/gpt4_features_embedded_by_glove_pca.npy
+    $EEG_FUSION_DATA/gpt4_features/gpt4_features_embedded_by_glove_pca.npy
     keys: text_features_train_long (Ntrain, 300), text_features_test_long (200, 300), train_index
 """
 import os
@@ -25,7 +25,7 @@ import re
 import numpy as np
 import pandas as pd
 
-PROJECT_DIR = '/scratch/byrong/encoding/data'
+PROJECT_DIR = os.environ.get('EEG_FUSION_DATA', 'data')
 GLOVE_NAME = 'glove-wiki-gigaword-300'      # classic GloVe, 6B tokens, 300-d
 OUT = op.join(PROJECT_DIR, 'gpt4_features', 'gpt4_features_embedded_by_glove_pca.npy')
 TOKEN_RE = re.compile(r"[a-z]+")

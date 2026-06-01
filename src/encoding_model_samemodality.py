@@ -53,7 +53,7 @@ parser.add_argument('--model1',        type=str,   default='text_embedding_large
 parser.add_argument('--model2',        type=str,   default='ember-v1')
 parser.add_argument('--nfeature1',     type=int,   default=1000)
 parser.add_argument('--nfeature2',     type=int,   default=1000)
-parser.add_argument('--project_dir',   type=str,   default='/scratch/byrong/encoding/data')
+parser.add_argument('--project_dir',   type=str,   default=os.environ.get('EEG_FUSION_DATA', 'data'))
 parser.add_argument('--tag',           type=str,   default='v3_samemod')
 parser.add_argument('--metric',        type=str,   default='r2', choices=['r2', 'mse', 'mae'])
 parser.add_argument('--model1_only',   action='store_true')

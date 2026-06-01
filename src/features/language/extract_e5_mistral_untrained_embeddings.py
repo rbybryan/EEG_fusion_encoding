@@ -29,7 +29,7 @@ def parse_args():
     parser = argparse.ArgumentParser(
         description="Extract random-weight e5-mistral embeddings for GPT-4 text features."
     )
-    parser.add_argument("--project_dir", default="/scratch/byrong/encoding/data", type=str)
+    parser.add_argument("--project_dir", default=os.environ.get('EEG_FUSION_DATA', 'data'), type=str)
     parser.add_argument("--model_name", default="intfloat/e5-mistral-7b-instruct", type=str)
     parser.add_argument(
         "--output_name",

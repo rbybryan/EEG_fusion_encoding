@@ -33,7 +33,7 @@ parser.add_argument('--sub', type=int, default=1,
                     help='Subject identifier.')
 parser.add_argument('--pretrained', default='True', type=str,
                     help="Whether to load pretrained weights ('True'/'False').")
-parser.add_argument('--project_dir', default='/scratch/byrong/encoding/data',
+parser.add_argument('--project_dir', default=os.environ.get('EEG_FUSION_DATA', 'data'),
                     type=str,
                     help='Root directory containing the image set.')
 args = parser.parse_args()

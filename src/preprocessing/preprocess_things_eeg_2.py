@@ -44,6 +44,7 @@ project_dir : str
 
 """
 
+import os
 import argparse
 
 from preprocessing_utils import epoching
@@ -83,7 +84,7 @@ parser.add_argument('--things_eeg_2_dir',
                     default='/scratch/giffordale95/datasets/things_eeg_2',
                     type=str,
                     help='Directory of the THINGS EEG2 dataset.')
-parser.add_argument('--project_dir', default='/scratch/byrong/encoding/data',
+parser.add_argument('--project_dir', default=os.environ.get('EEG_FUSION_DATA', 'data'),
                     type=str,
                     help='Directory of the project folder.')
 args = parser.parse_args()

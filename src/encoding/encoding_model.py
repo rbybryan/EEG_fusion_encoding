@@ -91,7 +91,7 @@ parser.add_argument('--nfeature_vm', type=int, default=1000,
 parser.add_argument('--nfeature_lm', type=int, default=1000,
                     help='Number of language feature components')
 parser.add_argument('--project_dir', type=str,
-                    default='/scratch/byrong/encoding/data',
+                    default=os.environ.get('EEG_FUSION_DATA', 'data'),
                     help='Root project directory')
 parser.add_argument('--pca_dir', type=str, default=None,
                     help='Directory for pca_feature_maps; defaults to project_dir')

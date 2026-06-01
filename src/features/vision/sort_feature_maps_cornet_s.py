@@ -25,7 +25,7 @@ import numpy as np
 parser = argparse.ArgumentParser()
 parser.add_argument('--pretrained', default=True, type=bool,
                     help='If True use a pretrained network, else a random one.')
-parser.add_argument('--project_dir', default='/scratch/byrong/encoding/data',
+parser.add_argument('--project_dir', default=os.environ.get('EEG_FUSION_DATA', 'data'),
                     type=str, help='Directory of the project folder.')
 args = parser.parse_args()
 

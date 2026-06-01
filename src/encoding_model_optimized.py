@@ -78,7 +78,7 @@ parser.add_argument('--vision_model', type=str, default='cornet_s', help='Vision
 parser.add_argument('--language_model', type=str, default='text_embedding_large', help='Language model name')
 parser.add_argument('--nfeature_vm', type=int, default=1000, help='Number of vision feature components')
 parser.add_argument('--nfeature_lm', type=int, default=1000, help='Number of language feature components')
-parser.add_argument('--project_dir', type=str, default='/scratch/byrong/encoding/data', help='Root project directory')
+parser.add_argument('--project_dir', type=str, default=os.environ.get('EEG_FUSION_DATA', 'data'), help='Root project directory')
 parser.add_argument('--tag', type=str, default='v3', help='Version tag for output files')
 parser.add_argument('--metric', type=str, choices=['r2','mse','mae'], default='r2', help='Regression metric to optimize')
 parser.add_argument('--vision_only', action='store_true', help='Run visio-only encoding')
