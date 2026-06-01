@@ -20,7 +20,7 @@ RSA, and variance partitioning.
 ```text
 .
 ├── README.md
-├── requirement.txt
+├── requirements.txt
 ├── examples/
 │   └── run_and_test_encoding_models.sh   # end-to-end example
 └── src/
@@ -34,8 +34,7 @@ RSA, and variance partitioning.
     │   │   ├── extract_feature_maps_alexnet.py    # control
     │   │   ├── extract_feature_maps_resnet50.py   # control
     │   │   ├── extract_feature_maps_sota.py       # timm SOTA controls
-    │   │   ├── feature_maps_pca.py                # KernelPCA reduction
-    │   │   └── feature_maps_pca_comb.py
+    │   │   └── feature_maps_pca.py                # PCA reduction
     │   └── language/                      # image → GPT-4V caption → embedding
     │       ├── generate_gpt4v_captions.py
     │       ├── extract_text_embedding_3_large.py  # headline LLM
@@ -46,7 +45,6 @@ RSA, and variance partitioning.
     ├── encoding/                          # ridge / fusion encoding model
     │   ├── encoding_model.py              # fast batched driver
     │   ├── utils.py                       # batched solvers + per-cell oracle
-    │   ├── validate_fast.py              # batched-vs-oracle equivalence check
     │   └── correlation.py
     └── analysis/                          # statistics on the predictions
         ├── partial_correlation.py · run_partial_corr.py
@@ -64,7 +62,7 @@ RSA, and variance partitioning.
 git clone https://github.com/rbybryan/EEG_fusion_encoding.git
 cd EEG_fusion_encoding
 python3 -m venv venv && source venv/bin/activate   # optional
-pip install -r requirement.txt
+pip install -r requirements.txt
 ```
 
 CORnet is installed from source:
@@ -145,12 +143,24 @@ python src/encoding/correlation.py \
 ### 5. Analyses
 
 See [`src/analysis/README.md`](src/analysis/README.md) for partial correlation,
-RSA, variance partitioning, and dimensionality analyses, e.g.:
+RSA, variance partitioning, and time-frequency analyses, e.g.:
 
 ```bash
 export EEG_FUSION_DATA=$PROJECT_DIR
-python src/analysis/partial_correlation.py --sub 1
-python src/analysis/summarize_unique_r2.py
+
+# unique + shared variance between any two models and their fusion
+python src/analysis/variance_partitioning.py \
+  --pred_a cornet_s_r2_v1 \
+  --pred_b text_embedding_large_r2_v1 \
+  --pred_ab cornet_s_with_text_embedding_large_r2_v1 \
+  --tag cornet_tel
+
+# partial correlation of one model controlling for another
+python src/analysis/partial_correlation.py \
+  --sub 1 \
+  --predictor cornet_s_r2_v1 \
+  --control text_embedding_large_r2_v1 \
+  --label cornet_given_tel
 ```
 
 ---
