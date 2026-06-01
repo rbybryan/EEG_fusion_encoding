@@ -71,12 +71,18 @@ def decode(task_id):
 
 
 def main():
-    p = argparse.ArgumentParser()
-    p.add_argument('--task_id', type=int, default=-1)
-    p.add_argument('--project_dir', type=str,
-                   default=_DATA_ROOT)
+    p = argparse.ArgumentParser(
+        description='Dispatch one (subject, tuple) partial-correlation job '
+                    'per SLURM task index.')
+    p.add_argument('--task_id', type=int, default=-1,
+                   help='Flat SLURM array index in [0, 139] selecting the '
+                        '(tuple, subject) pair.')
+    p.add_argument('--project_dir', type=str, default=_DATA_ROOT,
+                   help='Root data directory passed through to '
+                        'partial_correlation.py.')
     p.add_argument('--python', type=str,
-                   default='/trinity/shared/easybuild/software/Anaconda3/2024.06-1/bin/python3')
+                   default='/trinity/shared/easybuild/software/Anaconda3/2024.06-1/bin/python3',
+                   help='Python interpreter used to run partial_correlation.py.')
     p.add_argument('--list', action='store_true', help='Just list tuples and exit')
     args = p.parse_args()
 

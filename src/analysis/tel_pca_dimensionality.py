@@ -31,7 +31,7 @@ _DATA_ROOT = _os.environ.get('EEG_FUSION_DATA', _os.path.join(_REPO, 'data'))
 
 
 ANALYSIS_DIR = _os.path.join(_REPO, 'analysis')
-TEL_PRE_PCA  = _os.path.join(_DATA_ROOT, 'gpt4_features/gpt4_features_embedded_5v_large_avg.npy')
+TEL_PRE_PCA = _os.path.join(_DATA_ROOT, 'gpt4_features/gpt4_features_embedded_5v_large_avg.npy')
 
 os.makedirs(ANALYSIS_DIR, exist_ok=True)
 
@@ -67,8 +67,8 @@ rows = [{
     'n_features_in': n_feat,
     'n_train_samples': n_train,
     'n_nonzero_eigvals': int((eigvals > 1e-6).sum()),
-    'evr_top100':  f'{csum[99]/total:.6f}',
-    'evr_top500':  f'{csum[499]/total:.6f}',
+    'evr_top100': f'{csum[99]/total:.6f}',
+    'evr_top500': f'{csum[499]/total:.6f}',
     'evr_top1000': f'{csum[999]/total:.6f}',
     'evr_top3000': f'{csum[min(2999, len(eigvals)-1)]/total:.6f}',
     'total_variance': f'{float(total/(n_train-1)):.4f}',

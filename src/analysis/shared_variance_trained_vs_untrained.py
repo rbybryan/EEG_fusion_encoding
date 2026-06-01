@@ -81,6 +81,7 @@ def load_r2(sub, basename):
 
 
 def winmean(mat, times, lo, hi):
+    """Return the mean of ``mat`` over the time window ``[lo, hi]``."""
     mask = (times >= lo) & (times <= hi)
     if not np.any(mask):
         return float('nan')
@@ -88,6 +89,7 @@ def winmean(mat, times, lo, hi):
 
 
 def t_one_samp(x):
+    """Return ``(mean, sem, t, n)`` for a one-sample t-test against zero."""
     x = np.asarray(x, float)
     n = len(x)
     if n < 2:
@@ -98,15 +100,21 @@ def t_one_samp(x):
 
 
 def sig_label(t):
+    """Return a significance label from a t(9) value via fixed thresholds."""
     a = abs(t)
-    if a > 4.781: return 'p<0.001'
-    if a > 3.250: return 'p<0.01'
-    if a > 2.262: return 'p<0.05'
-    if a > 1.833: return 'p<0.10'
+    if a > 4.781:
+        return 'p<0.001'
+    if a > 3.250:
+        return 'p<0.01'
+    if a > 2.262:
+        return 'p<0.05'
+    if a > 1.833:
+        return 'p<0.10'
     return 'n.s.'
 
 
 def main():
+    """Compute, save, and plot the trained-vs-untrained DCNN-LLM partition."""
     os.makedirs(OUT_DIR, exist_ok=True)
     os.makedirs(ANALYSIS_DIR, exist_ok=True)
 

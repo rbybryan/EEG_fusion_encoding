@@ -32,7 +32,28 @@ from sklearn.utils import resample
 
 
 def partial_corr_lstsq(x, y, control):
-    """Partial corr(x, y | control) via residualisation."""
+    """Compute the partial correlation ``corr(x, y | control)``.
+
+    The predictor ``x`` and outcome ``y`` are each linearly regressed on
+    ``control`` (with an intercept) and the Pearson correlation of the
+    residuals is returned.
+
+    Parameters
+    ----------
+    x : array_like
+        Predictor values, one per sample.
+    y : array_like
+        Outcome values, one per sample.
+    control : array_like
+        Variable to partial out, one value per sample.
+
+    Returns
+    -------
+    float
+        Partial correlation of ``x`` and ``y`` controlling for
+        ``control``. Returns ``0.0`` if either residual vector has zero
+        standard deviation.
+    """
     x = np.asarray(x)
     y = np.asarray(y)
     control = np.asarray(control)
@@ -48,6 +69,29 @@ def partial_corr_lstsq(x, y, control):
 
 
 def compute_partial_correlation(pred_test, ctrl_test, bio_test, iterations=100):
+    """Compute per-channel, per-timepoint partial correlation against EEG.
+
+    For each bootstrap iteration a random held-in half of the repetitions
+    is averaged to form the biological target, and the partial correlation
+    ``corr(pred, bio | ctrl)`` is computed for every channel and timepoint.
+
+    Parameters
+    ----------
+    pred_test : numpy.ndarray
+        Predictor synthetic EEG of shape ``(n_images, n_channels, n_times)``.
+    ctrl_test : numpy.ndarray
+        Control synthetic EEG of shape ``(n_images, n_channels, n_times)``.
+    bio_test : numpy.ndarray
+        Biological EEG of shape ``(n_images, n_reps, n_channels, n_times)``.
+    iterations : int, optional
+        Number of bootstrap iterations, by default 100.
+
+    Returns
+    -------
+    numpy.ndarray
+        Mean partial correlation over iterations, shape
+        ``(n_channels, n_times)``.
+    """
     pred_test = pred_test[:, :63, :]
     ctrl_test = ctrl_test[:, :63, :]
     bio_test = bio_test[:, :, :63, :]
@@ -86,6 +130,13 @@ def load_synth(project_dir, sub, name):
 
 
 def load_bio(project_dir, sub):
+    """Load preprocessed biological test-split EEG for one subject.
+
+    Returns
+    -------
+    tuple
+        ``(preprocessed_eeg_data, ch_names, times)``.
+    """
     path = op.join(project_dir, 'eeg_dataset', 'preprocessed_eeg_data_v1',
                    f'eeg_sub-{sub:02d}_split-test.npy')
     d = np.load(path, allow_pickle=True).item()
@@ -93,18 +144,23 @@ def load_bio(project_dir, sub):
 
 
 def main():
+    """Parse CLI arguments, compute partial correlation, and save results."""
     p = argparse.ArgumentParser()
-    p.add_argument('--sub', type=int, required=True)
+    p.add_argument('--sub', type=int, required=True,
+                   help='Subject number')
     p.add_argument('--project_dir', type=str,
-                   default=_DATA_ROOT)
+                   default=_DATA_ROOT,
+                   help='Project data root directory')
     p.add_argument('--predictor', type=str, required=True,
                    help='Predictor synthetic file basename (no .npy)')
     p.add_argument('--control', type=str, required=True,
                    help='Control synthetic file basename (no .npy)')
     p.add_argument('--label', type=str, required=True,
                    help='Short label for the control/contrast (used in filename)')
-    p.add_argument('--iterations', type=int, default=100)
-    p.add_argument('--overwrite', action='store_true')
+    p.add_argument('--iterations', type=int, default=100,
+                   help='Number of bootstrap iterations')
+    p.add_argument('--overwrite', action='store_true',
+                   help='Recompute and overwrite an existing output file')
     args = p.parse_args()
 
     save_dir = op.join(args.project_dir, 'linear_results',

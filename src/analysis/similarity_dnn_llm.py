@@ -24,13 +24,13 @@ python similarity_dnn_llm.py --mode all
 import argparse
 import os
 import os.path as op
+import time
+
 import numpy as np
-from scipy.stats import pearsonr, spearmanr, linregress
+from scipy.stats import pearsonr
+from sklearn.decomposition import KernelPCA
 from sklearn.metrics.pairwise import cosine_similarity
 from sklearn.preprocessing import StandardScaler
-from sklearn.decomposition import KernelPCA
-import pickle
-import time
 
 # --- path configuration (portable defaults for public release) ---
 import os as _os

@@ -1,3 +1,11 @@
+"""Extract random-weight (untrained) e5-mistral embeddings for GPT-4 text features.
+
+This script loads the e5-mistral model from its configuration only (random
+initialization, no pretrained weights), encodes the GPT-4 generated text views
+for the training and test image sets, averages the per-view embeddings, and
+saves the result as a ``.npy`` dictionary for downstream encoding analyses.
+"""
+
 import argparse
 import os
 import os.path as op
@@ -10,6 +18,14 @@ from transformers import AutoConfig, AutoModel, AutoTokenizer
 
 
 def parse_args():
+    """Parse command-line arguments.
+
+    Returns
+    -------
+    argparse.Namespace
+        Parsed arguments controlling paths, model selection, and encoding
+        hyperparameters.
+    """
     parser = argparse.ArgumentParser(
         description="Extract random-weight e5-mistral embeddings for GPT-4 text features."
     )
@@ -33,6 +49,18 @@ def parse_args():
 
 
 def resolve_dtype(name: str) -> torch.dtype:
+    """Map a dtype name to the corresponding ``torch.dtype``.
+
+    Parameters
+    ----------
+    name : str
+        One of ``"float16"``, ``"bfloat16"``, or ``"float32"``.
+
+    Returns
+    -------
+    torch.dtype
+        The matching torch dtype.
+    """
     return {
         "float16": torch.float16,
         "bfloat16": torch.bfloat16,
@@ -41,6 +69,25 @@ def resolve_dtype(name: str) -> torch.dtype:
 
 
 def collect_texts(project_dir: str):
+    """Collect GPT-4 text descriptions for the training and test image sets.
+
+    Reads the cleaned GPT-4 feature CSV and, for each of the five views
+    (``v1``..``v5``), gathers the non-empty text descriptions aligned to the
+    sorted training and test image files.
+
+    Parameters
+    ----------
+    project_dir : str
+        Root directory containing the ``gpt4_features`` and ``image_set``
+        subdirectories.
+
+    Returns
+    -------
+    tuple
+        ``(train_by_view, test_by_view, train_index)`` where the first two are
+        dictionaries mapping view names to lists of texts, and ``train_index``
+        lists the training image indices retained for view ``v1``.
+    """
     df = pd.read_csv(op.join(project_dir, "gpt4_features", "gpt4_5v_cleaned.csv")).fillna("")
 
     train_dir = op.join(project_dir, "image_set", "training_images")
@@ -90,6 +137,20 @@ def collect_texts(project_dir: str):
 
 
 def last_token_pool(last_hidden_states: torch.Tensor, attention_mask: torch.Tensor) -> torch.Tensor:
+    """Pool the hidden states at the last non-padding token of each sequence.
+
+    Parameters
+    ----------
+    last_hidden_states : torch.Tensor
+        Final-layer hidden states of shape ``(batch, seq_len, hidden)``.
+    attention_mask : torch.Tensor
+        Attention mask of shape ``(batch, seq_len)``.
+
+    Returns
+    -------
+    torch.Tensor
+        Pooled representations of shape ``(batch, hidden)``.
+    """
     left_padding = attention_mask[:, -1].sum() == attention_mask.shape[0]
     if left_padding:
         return last_hidden_states[:, -1]
@@ -101,6 +162,31 @@ def last_token_pool(last_hidden_states: torch.Tensor, attention_mask: torch.Tens
 
 
 def encode_texts(model, tokenizer, texts, batch_size, max_length, device):
+    """Encode a list of texts into L2-normalized embeddings.
+
+    Texts are tokenized and encoded in batches; the last non-padding token's
+    hidden state is pooled and L2-normalized per sample.
+
+    Parameters
+    ----------
+    model : transformers.PreTrainedModel
+        The (untrained) encoder model.
+    tokenizer : transformers.PreTrainedTokenizer
+        Tokenizer matching ``model``.
+    texts : list of str
+        Input texts to encode.
+    batch_size : int
+        Number of texts per forward pass.
+    max_length : int
+        Maximum tokenized sequence length.
+    device : str
+        Device on which to run the model.
+
+    Returns
+    -------
+    numpy.ndarray
+        Embeddings of shape ``(len(texts), hidden)`` as float32.
+    """
     outputs = []
     for start in range(0, len(texts), batch_size):
         batch_texts = texts[start : start + batch_size]
@@ -121,6 +207,7 @@ def encode_texts(model, tokenizer, texts, batch_size, max_length, device):
 
 
 def main():
+    """Run the full extraction pipeline and save averaged embeddings to disk."""
     args = parse_args()
     device = "cuda" if torch.cuda.is_available() else "cpu"
     requested_dtype = resolve_dtype(args.dtype)

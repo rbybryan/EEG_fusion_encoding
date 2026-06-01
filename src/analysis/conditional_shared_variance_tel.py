@@ -66,6 +66,25 @@ REL_TOL = 1e-12
 
 
 def load_synth(sub, name):
+    """Load synthetic (predicted) EEG for a subject and model name.
+
+    Parameters
+    ----------
+    sub : int
+        Subject number.
+    name : str
+        Model identifier; legacy names are read from ``LEGACY_SYNTH_DIR``.
+
+    Returns
+    -------
+    numpy.ndarray
+        Synthetic data restricted to the first 63 channels.
+
+    Raises
+    ------
+    FileNotFoundError
+        If no matching synthetic file is found.
+    """
     if name in LEGACY_SYNTH_NAMES:
         base = op.join(LEGACY_SYNTH_DIR, f'sub-{sub:02d}', 'synthetic_eeg_data')
     else:
@@ -79,6 +98,7 @@ def load_synth(sub, name):
 
 
 def load_bio(sub):
+    """Load preprocessed biological test EEG and the time axis for a subject."""
     path = op.join(PROJECT_DIR, 'eeg_dataset', 'preprocessed_eeg_data_v1',
                    f'eeg_sub-{sub:02d}_split-test.npy')
     d = np.load(path, allow_pickle=True).item()
@@ -99,12 +119,14 @@ def split_half_means(bio, iterations, seed, sub):
 
 
 def center_flat(a):
+    """Flatten all but the first axis and mean-center along the first axis."""
     n = a.shape[0]
     x = a.reshape(n, -1).astype(float)
     return x - x.mean(axis=0, keepdims=True)
 
 
 def adjusted_r2(r2, n_obs, n_predictors):
+    """Adjust R^2 for the number of predictors; NaN when the dof is non-positive."""
     denom = n_obs - n_predictors - 1
     if denom <= 0:
         return np.full_like(r2, np.nan, dtype=float)
@@ -112,6 +134,7 @@ def adjusted_r2(r2, n_obs, n_predictors):
 
 
 def safe_div(num, den):
+    """Element-wise division guarded against tiny denominators (returns 0 there)."""
     out = np.zeros_like(num)
     ok = den > TINY
     out[ok] = num[ok] / den[ok]
@@ -119,11 +142,13 @@ def safe_div(num, den):
 
 
 def residualize_one(x, u, suu):
+    """Residualize ``x`` with respect to a single regressor ``u``."""
     beta = safe_div(np.sum(u * x, axis=0), suu)
     return x - u * beta[None, :]
 
 
 def residualize_two(x, u, l, suu, sll, sul, det):
+    """Residualize ``x`` with respect to two regressors ``u`` and ``l``."""
     sux = np.sum(u * x, axis=0)
     slx = np.sum(l * x, axis=0)
     bu = np.zeros_like(det)
@@ -136,6 +161,7 @@ def residualize_two(x, u, l, suu, sll, sul, det):
 
 
 def compute_subject(sub):
+    """Compute all unique- and shared-variance curves for one subject."""
     d = center_flat(load_synth(sub, TRAINED_CORNET))
     u = center_flat(load_synth(sub, UNTRAINED_CORNET))
     l = center_flat(load_synth(sub, TEL))
@@ -239,6 +265,7 @@ def compute_subject(sub):
 
 
 def t_one_samp(x):
+    """Return ``(mean, sem, t)`` of a one-sample t statistic against zero."""
     x = np.asarray(x, float)
     m = x.mean()
     sem = x.std(ddof=1) / np.sqrt(len(x))
@@ -246,15 +273,21 @@ def t_one_samp(x):
 
 
 def sig_label(t):
+    """Map a t value (df=9) to a coarse two-tailed significance label."""
     a = abs(t)
-    if a > 4.781: return 'p<0.001'
-    if a > 3.250: return 'p<0.01'
-    if a > 2.262: return 'p<0.05'
-    if a > 1.833: return 'p<0.10'
+    if a > 4.781:
+        return 'p<0.001'
+    if a > 3.250:
+        return 'p<0.01'
+    if a > 2.262:
+        return 'p<0.05'
+    if a > 1.833:
+        return 'p<0.10'
     return 'n.s.'
 
 
 def summarize(label, curve, times):
+    """Summarize a per-subject curve at its peak and in two latency windows."""
     mean = curve.mean(axis=0)
     pk_idx = int(np.argmax(mean))
     m_pk, sem_pk, t_pk = t_one_samp(curve[:, pk_idx])
@@ -279,6 +312,7 @@ def summarize(label, curve, times):
 
 
 def main():
+    """Run the conditional partition for all subjects and write outputs."""
     os.makedirs(OUT_DIR, exist_ok=True)
     os.makedirs(ANALYSIS_DIR, exist_ok=True)
 

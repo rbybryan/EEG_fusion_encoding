@@ -14,9 +14,10 @@ Supported models:
 
 import argparse
 import os
+import os.path as op
+
 import numpy as np
 import pandas as pd
-import os.path as op
 import torch
 from sentence_transformers import SentenceTransformer
 
@@ -28,9 +29,12 @@ os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "expandable_segments:True"
 # =============================================================================
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--project_dir', default='/scratch/byrong/encoding/data', type=str)
+parser.add_argument('--project_dir', default='/scratch/byrong/encoding/data', type=str,
+                    help="Root directory containing the input CSV and output folders.")
 parser.add_argument('--embedding_model', nargs='+', type=str,
-                    help="One or more embedding model names. E.g., 'Linq-AI-Research/Linq-Embed-Mistral', 'Alibaba-NLP/gte-Qwen2-7B-instruct', etc.")
+                    help="One or more embedding model names. E.g., "
+                         "'Linq-AI-Research/Linq-Embed-Mistral', "
+                         "'Alibaba-NLP/gte-Qwen2-7B-instruct', etc.")
 parser.add_argument('--encode_batch_size', default=16, type=int,
                     help="Batch size for encoding texts (default: 1 to minimize memory usage)")
 args = parser.parse_args()
@@ -43,7 +47,7 @@ model_names = [
     # "GritLM/GritLM-7B",
     # "GritLM/GritLM-8x7B",
     # "intfloat/e5-mistral-7b-instruct"
-                           
+
     # 'dunzhang/stella_en_1.5B_v5',                     # Stella model with 1.5B parameters, version v5
     # "Alibaba-NLP/gte-multilingual-base",             # A multilingual base model from the GTE series
     # "HIT-TMG/KaLM-embedding-multilingual-mini-v1",   # A compact multilingual embedding model from KaLM
@@ -54,8 +58,8 @@ model_names = [
     # 'ibm-granite/granite-embedding-107m-multilingual',
     # 'WhereIsAI/UAE-Large-V1',
     # 'jinaai/jina-embeddings-v3'                  # Jina AI's embeddings model, version 3
- 
-    # "Alibaba-NLP/gte-Qwen2-7B-instruct", 
+
+    # "Alibaba-NLP/gte-Qwen2-7B-instruct",
     # "GritLM/GritLM-7B",
     # "nvidia/NV-Embed-v2",  # NVIDIA's advanced embedding model
     # "Salesforce/SFR-Embedding-Mistral",
@@ -94,7 +98,7 @@ response_test = {}
 train_index = []
 for key in range(1, 6):
     response[f'v{key}'], response_test[f'v{key}'] = [], []
-    
+
     # Process training images
     img_train_dir = os.path.join(args.project_dir, 'image_set', 'training_images')
     train_images = []
@@ -103,14 +107,14 @@ for key in range(1, 6):
             if file.endswith(".jpg"):
                 train_images.append(os.path.join(root, file))
     train_images.sort()
-    
+
     for i, image in enumerate(train_images):
         name = image.split('/')[-1]
         if df[df.image == name][f'v{key}'].iloc[0] != '':
             response[f'v{key}'].append(df[df.image == name].iloc[0][f'v{key}'])
             if key == 1:
                 train_index.append(i)
-    
+
     # Process test images
     img_test_dir = os.path.join(args.project_dir, 'image_set', 'test_images')
     test_images = []
@@ -119,7 +123,7 @@ for key in range(1, 6):
             if file.endswith(".jpg"):
                 test_images.append(os.path.join(root, file))
     test_images.sort()
-    
+
     for image in test_images:
         name = image.split('/')[-1]
         if df[df.image == name][f'v{key}'].iloc[0] != '':
@@ -130,6 +134,17 @@ for key in range(1, 6):
 # =============================================================================
 
 def encode_embeddings(model, model_name, batch_size):
+    """Encode train and test captions and save the embeddings to disk.
+
+    Parameters
+    ----------
+    model : SentenceTransformer
+        Loaded embedding model used to encode the caption texts.
+    model_name : str
+        Identifier of the model; used to build the output file name.
+    batch_size : int
+        Batch size passed to ``model.encode`` to control memory usage.
+    """
     embeddings = []
     for key, texts in response.items():
         with torch.no_grad():
@@ -139,9 +154,9 @@ def encode_embeddings(model, model_name, batch_size):
         print(f"{model_name} encoded {len(texts)} texts for key {key}")
         # Clear cache after each key to free memory fragments
         torch.cuda.empty_cache()
-    
+
     embeddings = np.stack(embeddings)
-    
+
     embeddings_test = []
     for key, texts in response_test.items():
         with torch.no_grad():
@@ -149,16 +164,16 @@ def encode_embeddings(model, model_name, batch_size):
         embeddings_test.append(emb)
         torch.cuda.empty_cache()
     embeddings_test = np.stack(embeddings_test)
-    
+
     print("Train embeddings shape:", embeddings.shape, "Test embeddings shape:", embeddings_test.shape)
-    
+
     # Save embeddings to file
     data_dict = {
         'embedding_train': embeddings,
         'embedding_test': embeddings_test,
         'train_index': train_index
     }
-    
+
     save_dir = os.path.join(args.project_dir, 'gpt4_features')
     if not op.exists(save_dir):
         os.makedirs(save_dir)
@@ -175,7 +190,7 @@ for model_name in model_names:
     print(f"Processing model: {model_name}")
     try:
         # For models that require executing remote code, set trust_remote_code=True.
-        if model_name in ["nvidia/NV-Embed-v2", "Alibaba-NLP/gte-multilingual-base", 
+        if model_name in ["nvidia/NV-Embed-v2", "Alibaba-NLP/gte-multilingual-base",
         "jinaai/jina-embeddings-v3","GIST/GIST-large-Embedding-v0",'nomic-ai/nomic-embed-text-v1','nomic-ai/nomic-embed-text-v1-unsupervised',
         'nomic-ai/nomic-embed-text-v1.5','Lajavaness/bilingual-embedding-large',
         "Ivysaur/Ivysaur" ]:
@@ -195,14 +210,14 @@ for model_name in model_names:
                 config_kwargs={"is_text_encoder": True, "vector_dim": 1024},)
         # elif model_name == 'avsolatorio/GIST-large-Embedding-v0':
 
- 
+
         else:
             model = SentenceTransformer(model_name, device=device)
-        
+
         model.eval()  # Set model to evaluation mode
         with torch.no_grad():
             encode_embeddings(model, model_name, encode_batch_size)
-        
+
         # embeddings = np.array(embeddings)
         # print(f"Embeddings shape for {model_name}: {embeddings.shape}\n")
         torch.cuda.empty_cache()

@@ -1,14 +1,25 @@
+"""Extract ResNet-50 feature maps for image-set partitions.
+
+This script builds a ResNet-50 network (optionally loading ImageNet-pretrained
+weights), runs every image in each partition of the configured image set through
+the model, and saves the full feature maps from the four residual stages plus the
+final fully connected layer to disk as ``.npy`` files.
+
+The behaviour is made deterministic via fixed random seeds and PyTorch's
+deterministic-algorithm settings so that repeated runs yield identical feature
+maps.
+"""
+
 import argparse
-import torch.nn as nn
-import torch.utils.model_zoo as model_zoo
+import os
+
 import numpy as np
 import torch
+import torch.nn as nn
+import torch.utils.model_zoo as model_zoo
+from PIL import Image
 from torch.autograd import Variable as V
 from torchvision import transforms as trn
-import os
-import os.path as op
-import pandas as pd
-from PIL import Image
 
 # Set the environment variable for deterministic behavior
 os.environ['CUBLAS_WORKSPACE_CONFIG'] = ':4096:8'
@@ -17,9 +28,13 @@ os.environ['CUBLAS_WORKSPACE_CONFIG'] = ':4096:8'
 # Input arguments
 # =============================================================================
 parser = argparse.ArgumentParser()
-parser.add_argument('--sub', type=int, default=1)
-parser.add_argument('--pretrained', default='True', type=str)
-parser.add_argument('--project_dir', default='/scratch/byrong/encoding/data', type=str)
+parser.add_argument('--sub', type=int, default=1,
+                    help='Subject identifier.')
+parser.add_argument('--pretrained', default='True', type=str,
+                    help="Whether to load ImageNet-pretrained weights "
+                         "('True'/'False').")
+parser.add_argument('--project_dir', default='/scratch/byrong/encoding/data',
+                    type=str, help='Root directory of the project data.')
 args = parser.parse_args()
 
 args.pretrained = args.pretrained.lower() != 'false'
@@ -40,14 +55,20 @@ torch.use_deterministic_algorithms(True)
 # Import the model
 # =============================================================================
 def conv3x3(in_planes, out_planes, stride=1):
-    """3x3 convolution with padding"""
-    return nn.Conv2d(in_planes, out_planes, kernel_size=3, stride=stride, padding=1, bias=False)
+    """3x3 convolution with padding."""
+    return nn.Conv2d(in_planes, out_planes, kernel_size=3, stride=stride,
+                     padding=1, bias=False)
+
 
 def conv1x1(in_planes, out_planes, stride=1):
-    """1x1 convolution"""
-    return nn.Conv2d(in_planes, out_planes, kernel_size=1, stride=stride, bias=False)
+    """1x1 convolution."""
+    return nn.Conv2d(in_planes, out_planes, kernel_size=1, stride=stride,
+                     bias=False)
+
 
 class BasicBlock(nn.Module):
+    """Basic residual block used by the shallower ResNet variants."""
+
     expansion = 1
 
     def __init__(self, inplanes, planes, stride=1, downsample=None):
@@ -73,7 +94,10 @@ class BasicBlock(nn.Module):
         out = self.relu(out)
         return out
 
+
 class Bottleneck(nn.Module):
+    """Bottleneck residual block used by ResNet-50/101/152."""
+
     expansion = 4
 
     def __init__(self, inplanes, planes, stride=1, downsample=None):
@@ -104,12 +128,20 @@ class Bottleneck(nn.Module):
         out = self.relu(out)
         return out
 
-class ResNet(nn.Module):
 
-    def __init__(self, block, layers, num_classes=1000, zero_init_residual=False):
+class ResNet(nn.Module):
+    """ResNet backbone returning intermediate feature maps.
+
+    The ``forward`` method returns the activations from each of the four
+    residual stages together with the final fully connected output.
+    """
+
+    def __init__(self, block, layers, num_classes=1000,
+                 zero_init_residual=False):
         super(ResNet, self).__init__()
         self.inplanes = 64
-        self.conv1 = nn.Conv2d(3, 64, kernel_size=7, stride=2, padding=3, bias=False)
+        self.conv1 = nn.Conv2d(3, 64, kernel_size=7, stride=2, padding=3,
+                               bias=False)
         self.bn1 = nn.BatchNorm2d(64)
         self.relu = nn.ReLU(inplace=True)
         self.feat_list = ['block1', 'block2', 'block3', 'block4', 'fc']
@@ -122,7 +154,8 @@ class ResNet(nn.Module):
         self.fc = nn.Linear(512 * block.expansion, num_classes)
         for m in self.modules():
             if isinstance(m, nn.Conv2d):
-                nn.init.kaiming_normal_(m.weight, mode='fan_out', nonlinearity='relu')
+                nn.init.kaiming_normal_(m.weight, mode='fan_out',
+                                        nonlinearity='relu')
             elif isinstance(m, nn.BatchNorm2d):
                 nn.init.constant_(m.weight, 1)
                 nn.init.constant_(m.bias, 0)
@@ -165,13 +198,15 @@ class ResNet(nn.Module):
         x5 = self.fc(x)
         return x1, x2, x3, x4, x5
 
+
 def resnet50(pretrained=args.pretrained, **kwargs):
-    """Constructs a ResNet-50 model. """
+    """Construct a ResNet-50 model, optionally loading pretrained weights."""
     model = ResNet(Bottleneck, [3, 4, 6, 3], **kwargs)
     if pretrained == True:
         model_url = 'https://download.pytorch.org/models/resnet50-19c8e357.pth'
         model.load_state_dict(model_zoo.load_url(model_url))
     return model
+
 
 model = resnet50()
 if torch.cuda.is_available():
@@ -210,7 +245,8 @@ for p in img_partitions:
     image_list.sort()
     # Create the saving directory if not existing
     save_dir = os.path.join(args.project_dir, 'dnn_feature_maps',
-                            'full_feature_maps', 'resnet50', 'pretrained-' + str(args.pretrained), p)
+                            'full_feature_maps', 'resnet50',
+                            'pretrained-' + str(args.pretrained), p)
     if os.path.isdir(save_dir) == False:
         os.makedirs(save_dir)
 

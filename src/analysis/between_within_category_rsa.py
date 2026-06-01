@@ -36,8 +36,9 @@ rebuttal/figures/between_within_category_rsa.png
 import os
 import os.path as op
 import time
+
 import numpy as np
-from scipy.stats import pearsonr, linregress
+from scipy.stats import linregress, pearsonr
 from sklearn.metrics.pairwise import cosine_similarity
 
 # --- path configuration (portable defaults for public release) ---
@@ -60,6 +61,17 @@ SEED = 20200220
 
 
 def load_llm():
+    """Load the LLM text-embedding features and the training-image index.
+
+    Returns
+    -------
+    text : numpy.ndarray
+        Float64 array of shape ``(n_train, 3072)`` with the full
+        text-embedding-3-large features for the valid training images.
+    train_index : list of int
+        Indices (into the 16,540 THINGS-EEG2 training images) of the images
+        that survive GPT-4V validity filtering.
+    """
     d = np.load(op.join(PROJECT_DIR, 'gpt4_features', LLM_FILE), allow_pickle=True).item()
     text = np.asarray(d['text_features_train_long'])          # (16495, 3072) — use FULL 3072 (Fig 1B)
     train_index = list(d['train_index'])                      # 16495 indices into 16540
@@ -67,6 +79,24 @@ def load_llm():
 
 
 def load_cornet_all_layers(pretrained):
+    """Load the concatenated all-layers CORnet-S PCA feature maps.
+
+    Parameters
+    ----------
+    pretrained : str
+        ``'True'`` for the ImageNet-trained network or ``'False'`` for the
+        randomly initialised (untrained) network.
+
+    Returns
+    -------
+    numpy.ndarray
+        Array of shape ``(n_images, 1000)`` with the all-layers PCA features.
+
+    Raises
+    ------
+    FileNotFoundError
+        If no matching feature file is found under ``PCA_ROOTS``.
+    """
     for root in PCA_ROOTS:
         p = op.join(root, 'cornet_s', f'pretrained-{pretrained}',
                     'layers-all', 'pca_feature_maps_training.npy')
@@ -85,6 +115,7 @@ def rdm_lower(feats):
 
 
 def main():
+    """Run the between- vs within-category RSA and write the summary outputs."""
     t0 = time.time()
     rng = np.random.default_rng(SEED)
 

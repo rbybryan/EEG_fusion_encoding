@@ -23,7 +23,6 @@ import os
 import os.path as op
 import numpy as np
 import torch
-import torch.nn as nn
 from PIL import Image
 import timm
 

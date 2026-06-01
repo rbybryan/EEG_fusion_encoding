@@ -1,10 +1,19 @@
+"""Compute and plot EEG encoding-model correlations and noise ceilings.
+
+This script loads biological (test) EEG data and synthetic EEG data produced by
+a linearizing encoding model, computes the per-channel/per-time-point Pearson
+correlation between them together with lower- and upper-bound noise ceilings,
+saves the results, and produces a summary correlation plot.
+"""
+
 import os
+import argparse
+
 import numpy as np
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import tqdm
-import argparse
 from sklearn.utils import resample
 
 
@@ -28,7 +37,6 @@ def plot_correlation(synt_test, bio_test, ch_names, times, model_name, sub, data
     data_path : str
         Path to save the correlation results.
     """
-
     # Adjust synthetic data dimensions
     synt_test = synt_test[:, :63, :]
     bio_test = bio_test[:, :, :63, :]
@@ -103,8 +111,8 @@ bio_test = bio_data['preprocessed_eeg_data']
 ch_names = bio_data['ch_names']
 times = bio_data['times']
 
-synt_file = os.path.join(args.project_dir, 'linear_results', 'sub-'+
-              format(args.sub,'02'), 'synthetic_eeg_data', args.file)
+synt_file = os.path.join(args.project_dir, 'linear_results', 'sub-' +
+              format(args.sub, '02'), 'synthetic_eeg_data', args.file)
 synt_data = np.load(synt_file, allow_pickle=True).item()
 
 synt_test = synt_data['synthetic_data']

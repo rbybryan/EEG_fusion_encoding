@@ -1,4 +1,20 @@
-from typing import Tuple, Sequence, Union
+"""Fast Ridge regression utilities for EEG encoding models.
+
+This module provides drop-in, numerically identical replacements for
+``GridSearchCV(Ridge(), ...)`` based hyperparameter searches:
+
+- :func:`Grid_search` performs single-block Ridge regression with KFold CV over
+  the regularization strength ``alpha``.
+- :func:`Grid_search_fusion` performs two-block (fusion) Ridge regression with
+  KFold CV over both ``alpha`` and a block-mixing ``weight``.
+
+Both share the SVD of the training fold across all candidate ``alpha`` (and,
+for fusion, all candidate ``weight``) values, yielding ~100x speedups while
+producing results identical to the original ``GridSearchCV`` formulations.
+"""
+
+from typing import Sequence, Tuple, Union
+
 import numpy as np
 from sklearn.base import BaseEstimator, RegressorMixin
 from sklearn.linear_model import Ridge

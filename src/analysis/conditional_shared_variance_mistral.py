@@ -17,10 +17,10 @@ All terms use adjusted R2 and the same split-half target resampling as the
 other rebuttal variance analyses.
 """
 
+import argparse
 import csv
 import os
 import os.path as op
-import argparse
 
 import matplotlib
 
@@ -60,6 +60,10 @@ ARRAY_KEYS = (
 
 
 def load_synth(sub, name):
+    """Load the synthetic-EEG prediction for one subject and model.
+
+    Returns the ``synthetic_data`` array restricted to the first 63 channels.
+    """
     base = op.join(PROJECT_DIR, 'linear_results', f'sub-{sub:02d}',
                    'synthetic_eeg_data')
     for cand in (f'{name}.npy', f'{name}_all.npy'):
@@ -70,6 +74,7 @@ def load_synth(sub, name):
 
 
 def load_bio(sub):
+    """Load preprocessed biological test-split EEG and time vector for a subject."""
     path = op.join(PROJECT_DIR, 'eeg_dataset', 'preprocessed_eeg_data_v1',
                    f'eeg_sub-{sub:02d}_split-test.npy')
     d = np.load(path, allow_pickle=True).item()
@@ -77,12 +82,14 @@ def load_bio(sub):
 
 
 def center_flat(a):
+    """Flatten all but the first axis and mean-center across observations."""
     n = a.shape[0]
     x = a.reshape(n, -1).astype(float)
     return x - x.mean(axis=0, keepdims=True)
 
 
 def adjusted_r2(r2, n_obs, n_predictors):
+    """Compute adjusted R^2 from raw R^2, observation count and predictor count."""
     denom = n_obs - n_predictors - 1
     if denom <= 0:
         return np.full_like(r2, np.nan, dtype=float)
@@ -90,6 +97,7 @@ def adjusted_r2(r2, n_obs, n_predictors):
 
 
 def safe_div(num, den):
+    """Element-wise division guarding against near-zero denominators."""
     out = np.zeros_like(num)
     ok = den > TINY
     out[ok] = num[ok] / den[ok]
@@ -97,11 +105,13 @@ def safe_div(num, den):
 
 
 def residualize_one(x, c, scc):
+    """Residualize ``x`` against a single centered regressor ``c``."""
     beta = safe_div(np.sum(c * x, axis=0), scc)
     return x - c * beta[None, :]
 
 
 def residualize_two(x, c1, c2, s11, s22, s12, det):
+    """Residualize ``x`` against two centered regressors ``c1`` and ``c2``."""
     s1x = np.sum(c1 * x, axis=0)
     s2x = np.sum(c2 * x, axis=0)
     b1 = np.zeros_like(det)
@@ -114,6 +124,7 @@ def residualize_two(x, c1, c2, s11, s22, s12, det):
 
 
 def r2_from_residual(y, y_res):
+    """Compute clipped R^2 of a fit given target and its residual."""
     syy = np.sum(y * y, axis=0)
     sse = np.sum(y_res * y_res, axis=0)
     r2 = np.zeros_like(syy)
@@ -123,6 +134,7 @@ def r2_from_residual(y, y_res):
 
 
 def delta_adj_from_residuals(y, y_res, pred_res, r2_reduced, n_obs, k_reduced):
+    """Adjusted-R^2 gain from adding one residualized predictor to a reduced model."""
     syy = np.sum(y * y, axis=0)
     spp = np.sum(pred_res * pred_res, axis=0)
     syp = np.sum(y_res * pred_res, axis=0)
@@ -136,6 +148,7 @@ def delta_adj_from_residuals(y, y_res, pred_res, r2_reduced, n_obs, k_reduced):
 
 
 def compute_subject(sub):
+    """Compute all conditional UV/SV curves for one subject via split-half resampling."""
     d = center_flat(load_synth(sub, TRAINED_CORNET))
     u = center_flat(load_synth(sub, UNTRAINED_CORNET))
     l = center_flat(load_synth(sub, MISTRAL))
@@ -208,6 +221,7 @@ def compute_subject(sub):
 
 
 def t_one_samp(x):
+    """Return mean, standard error and one-sample t statistic of ``x``."""
     x = np.asarray(x, float)
     m = x.mean()
     sem = x.std(ddof=1) / np.sqrt(len(x))
@@ -215,15 +229,21 @@ def t_one_samp(x):
 
 
 def sig_label(t):
+    """Map an absolute t statistic to a two-tailed significance label (df=9)."""
     a = abs(t)
-    if a > 4.781: return 'p<0.001'
-    if a > 3.250: return 'p<0.01'
-    if a > 2.262: return 'p<0.05'
-    if a > 1.833: return 'p<0.10'
+    if a > 4.781:
+        return 'p<0.001'
+    if a > 3.250:
+        return 'p<0.01'
+    if a > 2.262:
+        return 'p<0.05'
+    if a > 1.833:
+        return 'p<0.10'
     return 'n.s.'
 
 
 def summarize(label, curve, times):
+    """Summarize a group curve at its peak and in two time windows."""
     mean = curve.mean(axis=0)
     pk_idx = int(np.argmax(mean))
     m_pk, sem_pk, t_pk = t_one_samp(curve[:, pk_idx])
@@ -248,16 +268,19 @@ def summarize(label, curve, times):
 
 
 def subject_cache_path(sub):
+    """Return the on-disk cache path for a subject's computed arrays."""
     return op.join(SUBJECT_CACHE_DIR, f'sub-{sub:02d}.npz')
 
 
 def load_subject_cache(sub):
+    """Load a subject's cached arrays and time vector from disk."""
     path = subject_cache_path(sub)
     d = np.load(path)
     return {k: d[k] for k in ARRAY_KEYS + ('times',)}
 
 
 def compute_or_load_subject(sub, overwrite=False):
+    """Return a subject's arrays from cache, or compute and cache them."""
     os.makedirs(SUBJECT_CACHE_DIR, exist_ok=True)
     path = subject_cache_path(sub)
     if op.exists(path) and op.getsize(path) > 0 and not overwrite:
@@ -270,6 +293,7 @@ def compute_or_load_subject(sub, overwrite=False):
 
 
 def build_outputs(subjects, overwrite_subjects=False, allow_missing=False):
+    """Aggregate subjects, write arrays/summary CSV, and render the figure."""
     os.makedirs(OUT_DIR, exist_ok=True)
     os.makedirs(ANALYSIS_DIR, exist_ok=True)
 
@@ -365,6 +389,7 @@ def build_outputs(subjects, overwrite_subjects=False, allow_missing=False):
 
 
 def parse_subjects(text):
+    """Parse a comma/range subject spec (e.g. ``'1-10,12'``) into a list of ints."""
     subjects = []
     for part in text.split(','):
         part = part.strip()
@@ -377,10 +402,22 @@ def parse_subjects(text):
 
 
 def main():
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--subjects', default='1-10')
-    parser.add_argument('--overwrite-subjects', action='store_true')
-    parser.add_argument('--allow-missing', action='store_true')
+    """Parse CLI arguments and build the conditional-partition outputs."""
+    parser = argparse.ArgumentParser(
+        description='Conditional trained-CORnet-S / e5-Mistral variance partition.'
+    )
+    parser.add_argument(
+        '--subjects', default='1-10',
+        help="Subject spec as comma/range list, e.g. '1-10' or '1,3,5'.",
+    )
+    parser.add_argument(
+        '--overwrite-subjects', action='store_true',
+        help='Recompute per-subject caches even if they already exist.',
+    )
+    parser.add_argument(
+        '--allow-missing', action='store_true',
+        help='Skip subjects whose data cannot be loaded instead of failing.',
+    )
     args = parser.parse_args()
     build_outputs(
         parse_subjects(args.subjects),

@@ -41,7 +41,6 @@ import argparse
 import csv
 import os
 import os.path as op
-import sys
 
 import matplotlib
 
@@ -68,6 +67,30 @@ SUBJECTS = list(range(1, 11))
 
 
 def load_synth(project_dir, sub, name):
+    """Load synthetic-EEG predictions for one subject and predictor name.
+
+    Tries both the bare ``{name}.npy`` and the ``{name}_all.npy`` variants
+    under the subject's ``synthetic_eeg_data`` directory.
+
+    Parameters
+    ----------
+    project_dir : str
+        Root data directory containing ``linear_results``.
+    sub : int
+        Subject identifier (1-based).
+    name : str
+        Predictor file stem to load.
+
+    Returns
+    -------
+    numpy.ndarray
+        The ``synthetic_data`` array stored in the matched ``.npy`` file.
+
+    Raises
+    ------
+    FileNotFoundError
+        If neither candidate file exists.
+    """
     base = op.join(project_dir, 'linear_results', f'sub-{sub:02d}',
                    'synthetic_eeg_data')
     for cand in (f'{name}.npy', f'{name}_all.npy'):
@@ -78,6 +101,20 @@ def load_synth(project_dir, sub, name):
 
 
 def load_bio(project_dir, sub):
+    """Load preprocessed biological test EEG and the time axis for a subject.
+
+    Parameters
+    ----------
+    project_dir : str
+        Root data directory containing ``eeg_dataset``.
+    sub : int
+        Subject identifier (1-based).
+
+    Returns
+    -------
+    tuple of numpy.ndarray
+        ``(preprocessed_eeg_data, times)`` for the subject's test split.
+    """
     path = op.join(project_dir, 'eeg_dataset', 'preprocessed_eeg_data_v1',
                    f'eeg_sub-{sub:02d}_split-test.npy')
     d = np.load(path, allow_pickle=True).item()
@@ -129,6 +166,31 @@ def single_predictor_r2_for_half(pred, bio_half):
 
 
 def compute_subject_layer(project_dir, sub, layer, iterations, seed):
+    """Compute split-half single-predictor R^2 for one subject and layer.
+
+    Runs ``iterations`` split-half resamples and averages the raw and
+    adjusted per-channel/time R^2 maps for the DNN-only, LLM-only, and
+    fusion predictors.
+
+    Parameters
+    ----------
+    project_dir : str
+        Root data directory.
+    sub : int
+        Subject identifier (1-based).
+    layer : str
+        DNN layer name (one of ``LAYERS``).
+    iterations : int
+        Number of split-half resampling iterations.
+    seed : int
+        Base seed; the per-subject RNG is seeded with ``seed + sub``.
+
+    Returns
+    -------
+    dict
+        Channel x time R^2 maps (raw and adjusted) for each predictor plus
+        the ``times`` axis.
+    """
     dnn_name = f'cornet_s_r2_v3_layerwise_{layer}'
     fusion_name = f'cornet_s_with_text_embedding_large_r2_v3_layerwise_{layer}'
     llm_name = 'text_embedding_large_r2_v3'
@@ -167,6 +229,22 @@ def compute_subject_layer(project_dir, sub, layer, iterations, seed):
 
 
 def winmean(mat, times, lo, hi):
+    """Mean of ``mat`` over the time window ``[lo, hi]`` (inclusive).
+
+    Parameters
+    ----------
+    mat : numpy.ndarray
+        Array with time along the last axis.
+    times : numpy.ndarray
+        Time axis aligned with the last axis of ``mat``.
+    lo, hi : float
+        Inclusive lower and upper bounds of the time window.
+
+    Returns
+    -------
+    float
+        Window mean, or NaN if no time points fall within the window.
+    """
     mask = (times >= lo) & (times <= hi)
     if not np.any(mask):
         return float('nan')
@@ -175,6 +253,24 @@ def winmean(mat, times, lo, hi):
 
 def plot_layer_curves(curves, title, ylabel, out_path,
                       cmap_name='viridis', figsize=(8, 5)):
+    """Plot subject-averaged time courses (mean +/- SEM) for each layer.
+
+    Parameters
+    ----------
+    curves : list of tuple
+        Each item is ``(label, mat, times)`` where ``mat`` is a
+        ``(subjects, time)`` array.
+    title : str
+        Figure title.
+    ylabel : str
+        Y-axis label.
+    out_path : str
+        Destination path for the saved figure.
+    cmap_name : str, optional
+        Matplotlib colormap name used to color the layers.
+    figsize : tuple, optional
+        Figure size in inches.
+    """
     fig, ax = plt.subplots(figsize=figsize)
     cmap = plt.get_cmap(cmap_name)
     for i, (label, mat, times) in enumerate(curves):
@@ -198,10 +294,18 @@ def plot_layer_curves(curves, title, ylabel, out_path,
 
 
 def main():
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--project_dir', default=PROJECT_DIR)
-    parser.add_argument('--iterations', type=int, default=100)
-    parser.add_argument('--seed', type=int, default=20260510)
+    """Run the layer-wise shared/unique variance decomposition and save outputs."""
+    parser = argparse.ArgumentParser(
+        description='Compute layer-wise shared variance (DNN intersect LLM) '
+                    'and standard unique-variance curves for the rebuttal.',
+    )
+    parser.add_argument('--project_dir', default=PROJECT_DIR,
+                        help='Root data directory containing linear_results '
+                             'and eeg_dataset.')
+    parser.add_argument('--iterations', type=int, default=100,
+                        help='Number of split-half resampling iterations.')
+    parser.add_argument('--seed', type=int, default=20260510,
+                        help='Base random seed (per-subject seed is seed + sub).')
     args = parser.parse_args()
 
     os.makedirs(OUT_DIR, exist_ok=True)

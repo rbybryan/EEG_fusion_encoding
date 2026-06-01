@@ -235,10 +235,21 @@ def plot_curves(curves, title, ylabel, out_path):
 
 
 def main():
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--project_dir', default=PROJECT_DIR)
-    parser.add_argument('--iterations', type=int, default=100)
-    parser.add_argument('--seed', type=int, default=20260510)
+    parser = argparse.ArgumentParser(
+        description='Compute nested-model delta R2 for variance partitioning.'
+    )
+    parser.add_argument(
+        '--project_dir', default=PROJECT_DIR,
+        help='Root directory holding linear_results and eeg_dataset.',
+    )
+    parser.add_argument(
+        '--iterations', type=int, default=100,
+        help='Number of split-half resampling iterations per subject.',
+    )
+    parser.add_argument(
+        '--seed', type=int, default=20260510,
+        help='Base random seed; per-subject seed is seed + subject index.',
+    )
     args = parser.parse_args()
 
     os.makedirs(OUT_DIR, exist_ok=True)
